@@ -19,10 +19,11 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Any
+from typing import cast
 
 from dotenv import load_dotenv
 from openai import OpenAI
+from openai.types.chat import ChatCompletionMessageParam
 
 from tools import TOOL_REGISTRY, TOOL_SCHEMAS
 
@@ -54,7 +55,7 @@ def run_agent(user_message: str, system_prompt: str | None = None) -> str:
 
     # The conversation is just a list of dicts. That's it. No magic state.
     # The model sees exactly what's in this list, every turn.
-    messages: list[dict[str, Any]] = []
+    messages: list[ChatCompletionMessageParam] = []
     if system_prompt:
         messages.append({"role": "system", "content": system_prompt})
     messages.append({"role": "user", "content": user_message})
@@ -82,7 +83,7 @@ def run_agent(user_message: str, system_prompt: str | None = None) -> str:
         # Preserve the assistant message in history *exactly as the model emitted it*.
         # The API requires this on the next turn so tool results can link back
         # to the original tool_call_id.
-        messages.append(assistant_message.model_dump(exclude_none=True))
+        messages.append(cast(ChatCompletionMessageParam, assistant_message.model_dump(exclude_none=True)))
 
         # No tool calls means the model is finished. This is the loop exit.
         if not assistant_message.tool_calls:
@@ -96,6 +97,8 @@ def run_agent(user_message: str, system_prompt: str | None = None) -> str:
         # ------------------------------------------------------------------
         print(f"Model requested {len(assistant_message.tool_calls)} tool call(s):")
         for tool_call in assistant_message.tool_calls:
+            if tool_call.type != "function":
+                continue
             tool_name = tool_call.function.name
             raw_args = tool_call.function.arguments
 
