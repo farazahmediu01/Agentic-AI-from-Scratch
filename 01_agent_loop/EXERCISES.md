@@ -10,7 +10,9 @@ Work top to bottom. Difficulty climbs deliberately.
 | **Guided build** | 4–5 | ~70 min | You can apply the loop to build something new |
 | **Challenge** | 6–7 | open-ended | You can design a solution nobody handed you |
 
-**Rules:** work in copies (`my_agent.py`, `my_tools.py`) so the originals stay clean as a reference. Reference solutions are in `solutions/` — open them only after you've made a real attempt.
+**Rules:** work in copies inside `from_scratch/` (`my_agent.py`, `my_tools.py`) so the originals stay clean as a reference. Reference solutions are in `solutions/` — open them only after you've made a real attempt.
+
+**Where these sit in the chapter:** exercises are Layer 3. After them comes `with_sdk/compare.md` (Layer 4 — the same agent on the Agents SDK) and then `PROJECT.md` (Layer 6 — Spendly Lite v1). Exercises 3 and 5 are directly reused by the project, so don't skip them.
 
 ---
 
@@ -29,7 +31,7 @@ run_agent("A laptop costs 85000. Calculate 15% of it, then subtract that from th
 **You're done when:**
 - [ ] The agent returns `72250`
 - [ ] The trace shows `percentage_of` called, then `subtract` called with the result
-- [ ] `uv run pyright 01_agent_loop/my_tools.py` reports 0 errors
+- [ ] `uv run pyright 01_agent_loop/from_scratch/my_tools.py` reports 0 errors
 
 **Trap to avoid:** if the model does the percentage in its head instead of calling your tool, your `description` is too weak. Fix the description, don't fix the prompt.
 
@@ -98,7 +100,7 @@ Then run this task, which requires **at least three tool calls across at least t
 > "I'm shipping a 12.5 kg package 340 km, and the warehouse is 31°C. Give me all three values in imperial/Fahrenheit units, each rounded to 1 decimal place."
 
 **You're done when:**
-- [ ] `unit_agent.py` runs standalone (`uv run python 01_agent_loop/unit_agent.py`)
+- [ ] `unit_agent.py` runs standalone (`uv run python 01_agent_loop/from_scratch/unit_agent.py`)
 - [ ] The trace shows ≥ 3 tool calls
 - [ ] At least one `round_number` call takes the *output of another tool* as input — visible in the trace
 - [ ] Unknown units (e.g. asking for "gallons") produce a graceful "I don't have a tool for that" answer rather than a hallucinated number
@@ -217,4 +219,11 @@ Constraints:
 
 ## Finished?
 
-You've done the practice tasks and the exercises. Now combine everything: **`PROJECT.md`** — the chapter project. Step 2 waits until that acceptance checklist passes.
+Two things left in this chapter, in order:
+
+1. **`with_sdk/compare.md`** — the same agent rebuilt on the OpenAI Agents SDK, plus Practices 10 and 11. You've earned the right to use the framework; now find out exactly what it took over.
+2. **`PROJECT.md`** — **Spendly Lite v1**, built both ways and graded by one dataset.
+
+Chapter 2 waits until the project's acceptance checklist passes.
+
+> **Note on Exercise 7:** the approval gate you designed is `needs_approval=True` in the Agents SDK — one keyword argument. You'll meet it properly in the trust chapter. Having built it by hand first is why it will look obvious rather than magic.

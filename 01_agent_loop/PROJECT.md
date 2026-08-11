@@ -1,125 +1,185 @@
-# Chapter 1 Project — The Freelance Invoice Agent
+# Chapter 1 Project — Spendly Lite v1
 
-> **Every chapter ends with a project.** Practice tasks teach one concept each. Exercises stretch them. The project makes you assemble all of them into one thing that works.
+> **Every chapter ends with a project, and it is always the same project.** Spendly Lite grows with you: an agent loop today, typed tools next, then structured outputs, memory, specialists, guardrails, and evals. You are not building throwaway exercises — you are building one app, one capability at a time.
 
-**Time: 90–120 minutes. Build it in `project/` inside this folder.**
+**Time: ~2 hours. Build it in `project/` inside this folder.**
+
+**Axes:** 🧠 State · 🔒 Trust (this is the first project that can *damage* something) · 📐 Proof
 
 ---
 
 ## The Brief
 
-A freelancer describes their month in plain English. The agent turns that into a correct, itemised invoice saved to disk.
+A personal expense assistant. The user talks to it in plain English; it records spending and answers questions about it.
 
 ```
-You: I did 12 hours of backend work and 6.5 hours of UI design for Acme Corp this month.
-     Apply the 10% loyalty discount and 5% tax. Save the invoice.
+You: I spent 1500 at KFC on lunch today. Log it, then tell me how much of my
+     food budget is left this month.
 
-Agent: [calls lookup_rate, multiply, add, apply_discount, apply_tax, save_invoice ...]
+Agent: [get_today → log_expense → get_budget → month_total → subtract]
 
-        Invoice INV-20260810-1432 saved to invoices/INV-20260810-1432.txt
-        Subtotal PKR 113,750 | Discount -PKR 11,375 | Tax PKR 5,118.75 | Total PKR 107,493.75
+        Logged PKR 1,500 at KFC (Food & Dining).
+        Food budget: 25,000 · spent 9,000 · remaining PKR 16,000.
 ```
 
-Nothing here is beyond Chapter 1. No memory, no context management, no framework — a loop, tools, schemas, a registry, and a system prompt.
+Nothing here is beyond Chapter 1 — a loop, tools, schemas, a registry, and a system prompt. No memory, no structured outputs, no framework (yet).
 
-**Why this project:** it needs *genuine* multi-step chaining (you cannot compute the total without three earlier tool results), it has a real side effect (a file gets written), and it has failure paths (unknown role, negative hours) that force the error-handling concept to earn its keep.
+**Why this project:** it needs genuine chaining (you cannot know "remaining" without three earlier tool results), it has a real side effect (the ledger changes), and it has failure paths — unknown category, missing amount, negative spend — that make the error-handling concept earn its keep.
 
 ---
 
 ## Required Tools
 
-Implement in `project/invoice_tools.py`. All pure Python — no network calls.
+Implement in `project/expense_tools.py`. All pure Python.
 
 | Tool | Signature | Behaviour |
 |------|-----------|-----------|
-| `get_current_time` | `() -> str` | ISO timestamp — used for the invoice date and ID |
-| `lookup_rate` | `(role: str) -> float` | Hourly rate from a dict. **Raise a helpful error for unknown roles, listing the valid ones.** |
-| `line_total` | `(hours: float, rate: float) -> float` | Hours × rate. **Reject negative hours with a clear error.** |
-| `add` | `(a: float, b: float) -> float` | Sum two line totals into a subtotal |
-| `apply_discount` | `(amount: float, percent: float) -> float` | Amount after discount |
-| `apply_tax` | `(amount: float, percent: float) -> float` | Amount after tax |
-| `save_invoice` | `(client: str, lines: str, subtotal: float, discount: float, tax: float, total: float) -> str` | Writes `invoices/INV-<timestamp>.txt`, returns the path |
+| `get_today` | `() -> str` | Today as `YYYY-MM-DD` |
+| `log_expense` | `(vendor, amount, category, expense_date="") -> str` | **The only tool with a side effect.** Rejects `amount <= 0` and empty vendor. Rejects unknown categories, listing the valid ones. |
+| `month_total` | `(category, month="") -> float` | Total spent in a category that month |
+| `get_budget` | `(category) -> float` | Monthly budget for a category |
+| `subtract` | `(a, b) -> float` | Budget remaining |
+| `list_recent` | `(limit=5) -> str` | Most recent expenses |
+| `list_categories` | `() -> str` | Every valid category |
 
-Rate card (use exactly this so results are checkable):
+Store expenses as JSON in `project/data/expenses.json` — you should be able to open it and see exactly what the agent wrote. (SQLite comes in the persistence chapter; these tools won't change when it does.)
+
+**The ten categories** (a closed set — free-text categories are how expense trackers die):
+
+```
+Food & Dining · Transportation · Shopping · Bills & Utilities · Entertainment
+Health & Medical · Education · Groceries · Office Supplies · Miscellaneous
+```
+
+**Monthly budgets (PKR)** — use exactly these so results are checkable:
 
 ```python
-RATE_CARD: dict[str, float] = {
-    "backend":   6500.0,
-    "frontend":  6000.0,
-    "ui design": 5500.0,
-    "devops":    7000.0,
-    "consulting": 9000.0,
+MONTHLY_BUDGETS = {
+    "Food & Dining": 25000, "Transportation": 12000, "Shopping": 15000,
+    "Bills & Utilities": 18000, "Entertainment": 8000, "Health & Medical": 10000,
+    "Education": 20000, "Groceries": 30000, "Office Supplies": 5000,
+    "Miscellaneous": 6000,
 }
 ```
+
+**Seed data** so budget math is non-trivial: three Food & Dining expenses this month totalling **7,500**, plus one Transportation expense of 900.
 
 ---
 
 ## Required Behaviour
 
-1. **Multi-step chaining.** `line_total` results feed `add`; the subtotal feeds `apply_discount`; that feeds `apply_tax`; all of it feeds `save_invoice`. The agent must discover this order itself — do not hardcode a pipeline.
-2. **A real artifact.** A readable `.txt` invoice file exists on disk after a successful run.
-3. **Graceful failure.** `"I did 5 hours of underwater welding"` must produce a helpful reply listing valid roles — not a crash, not an invented rate.
-4. **Refusal to guess.** If hours or the client name are missing, the agent asks for them instead of inventing values. (System-prompt work — Exercise 2's skill.)
-5. **Safety limits.** `MAX_ITERATIONS` is enforced and the exhaustion path returns an honest message.
-6. **Observability.** Every run prints the summary from Exercise 3: iterations used, tool calls, tool errors, tools used.
+1. **Multi-step chaining.** The agent must discover the order itself. Do not hardcode a pipeline.
+2. **A real artifact.** `data/expenses.json` contains what the agent logged.
+3. **Graceful failure.** An unknown category produces a helpful reply listing real options — not a crash, not an invented category.
+4. **Refusal to guess.** Missing vendor or amount → ask. Never invent.
+5. **No silent correction.** A negative amount means stop and ask. See the trap below.
+6. **Safety limits.** `MAX_ITERATIONS` enforced; exhaustion returns an honest message.
+7. **Observability.** Every run prints the summary from Exercise 3.
 
 ---
 
-## Required Files
+## Build It Twice
 
+This is the part that makes Chapter 1 different from a tutorial.
+
+### Build A — `project/expense_agent.py` (from scratch)
+
+Your loop, your hand-written schemas, your registry.
+
+### Build B — `project/expense_agent_sdk.py` (OpenAI Agents SDK)
+
+The same agent, same system prompt, same tool logic — on `Agent` + `Runner` + `@function_tool`. Import the tool *functions* from your own module so the business logic is identical and only the wrapper changes.
+
+```python
+agent = Agent(name="Spendly Lite", instructions=SYSTEM_PROMPT, model=MODEL, tools=[...])
+result = await Runner.run(agent, user_message, max_turns=15)
 ```
-01_agent_loop/project/
-  invoice_agent.py     # the loop (start from agent.py, then make it yours)
-  invoice_tools.py     # 7 tools + schemas + registry
-  check_invoice.py     # assertion-based checks (from Exercise 5)
-  RUNS.md              # evidence — 5 recorded runs
-  invoices/            # generated output (gitignored is fine)
+
+Then compare, honestly:
+
+| | From scratch | With SDK |
+|---|---|---|
+| Lines of loop code | ~200 | 1 |
+| Lines of tool schema | ~140 | 0 |
+| Who validates arguments | nobody | the SDK, before your function runs |
+
+### Then grade both with the *same* harness
+
+`project/check_expenses.py` must run against either build:
+
+```powershell
+uv run python 01_agent_loop/project/check_expenses.py
+uv run python 01_agent_loop/project/check_expenses.py --impl sdk
 ```
 
-### `RUNS.md` is not optional
+The dataset does not change. You will need a ~30-line adapter to make the SDK result expose `final_answer` and `tool_names`, and writing that adapter is the exercise: **a good eval describes required behaviour, not the code that produces it.**
 
-Five runs, recorded in this table. **Fill in `Expected` before you run.**
+> Expect the two builds to report **different turn counts** for identical work — our loop batches parallel tool calls into one iteration, the SDK often issues them one per turn. If your eval asserts on turn count, it will fail a correct agent. Assert on outcomes.
 
-| # | Input | Expected | Actual | Tools called | Iterations | Pass? |
-|---|-------|----------|--------|--------------|------------|-------|
-| 1 | 12h backend, 6.5h ui design, Acme, 10% disc, 5% tax | Total 107,493.75 | | | | |
-| 2 | 8h devops only, no discount, 5% tax | Total 58,800 | | | | |
-| 3 | 5h underwater welding | Helpful refusal, no file written | | | | |
-| 4 | "make me an invoice" (nothing else) | Asks for client, role, hours | | | | |
-| 5 | -3h backend | Rejects negative hours | | | | |
+### Expect the two builds to disagree — that's the value
 
-For any failing row, add a sentence on **why** it failed and what you changed.
+When this project was built, the SDK version failed case 1 while the from-scratch version passed. It called `get_budget` → `month_total` → **then** `log_expense`, reading the month's total *before* writing the new expense. Every tool returned a correct value; the arithmetic was correct; the answer was wrong by exactly 1,500.
 
-> This is your first golden dataset. Five hand-written cases with expected outputs is exactly what Step 5 automates — building it by hand now means the eval harness will feel obvious later, instead of feeling like framework magic.
+The bug lives in the model's planning, not in either codebase — so it appears intermittently, and **a second implementation is a cheap second sample.** If both your builds pass on the first try, run case 1 three more times before you believe it.
+
+---
+
+## `RUNS.md` — Evidence
+
+Five runs, per build. **Fill in `Expected` before you run.**
+
+| # | Input | Expected | Scratch | SDK |
+|---|-------|----------|---------|-----|
+| 1 | 1500 at KFC, log + food budget left | Logged; **16,000** remaining | | |
+| 2 | "How much have I spent on food this month?" | **7,500**, nothing written | | |
+| 3 | Log 2000 under the "astrology" category | Offers real categories, nothing written | | |
+| 4 | "Log an expense for me." | Asks for amount + vendor, nothing written | | |
+| 5 | Log **-450** at Imtiaz for groceries | Refuses, nothing written | | |
+
+Reset the ledger to the seed before every case. An eval that depends on leftover state from the previous run is not an eval — it's a coin flip.
+
+For any failing row, write one sentence on **why** and what you changed.
+
+> This is your first golden dataset. The evals chapter grows it to 50 rows and adds an LLM judge for the cases where "correct" is a paragraph rather than a number.
 
 ---
 
 ## Acceptance Checklist
 
-You are done when **every box** is checked:
-
 **Functionality**
-- [ ] `uv run python 01_agent_loop/project/invoice_agent.py` runs end to end
-- [ ] Run 1 produces subtotal 113,750 / discount 11,375 / tax 5,118.75 / **total 107,493.75**
-      (12 × 6500 = 78,000 · 6.5 × 5500 = 35,750 · −10% · +5%)
-- [ ] An invoice file exists in `invoices/` and is human-readable
-- [ ] All five `RUNS.md` rows are filled in with real observed output
+- [ ] Both builds run end to end
+- [ ] Case 1 reports exactly **16,000** remaining (25,000 budget − 7,500 seeded − 1,500 new)
+- [ ] `data/expenses.json` contains the KFC row with amount 1500 and category `Food & Dining`
+- [ ] All five `RUNS.md` rows filled in for both builds
 
 **Correctness of the loop**
-- [ ] The trace shows ≥ 5 tool calls across ≥ 3 iterations for run 1
-- [ ] At least one tool call demonstrably consumes another tool's output
-- [ ] No arithmetic is done by the model in its head — every number in the final answer traces to a tool result
+- [ ] Case 1 shows ≥ 3 tool calls with real chaining
+- [ ] At least one tool call consumes another tool's output
+- [ ] No arithmetic done in the model's head — every number traces to a tool result
 
-**Robustness**
-- [ ] Unknown role → helpful message listing valid roles, and **no file written**
-- [ ] Negative hours → rejected with a clear error
-- [ ] Missing information → the agent asks instead of inventing
+**Trust**
+- [ ] A question (case 2) never writes to the ledger
+- [ ] Unknown category → real options offered, nothing written
+- [ ] Missing info → asks, nothing written
+- [ ] Negative amount → refused, nothing written, **and not silently flipped to positive**
 
 **Engineering**
-- [ ] `uv run pyright 01_agent_loop/project/` → **0 errors, 0 warnings**
-- [ ] `check_invoice.py` passes with ≥ 5 assertions covering tools used, iteration count, and the final total
-- [ ] No API key in source — `.env` only
-- [ ] No agent framework imported
+- [ ] `uv run pyright 01_agent_loop/project/` → 0 errors, 0 warnings
+- [ ] `check_expenses.py` passes against **both** builds from one dataset
+- [ ] No API key in source
+- [ ] The from-scratch build imports no agent framework
+
+---
+
+## The Trap in Case 5 (worth the whole project)
+
+Almost every first attempt fails case 5, and it fails in a way that looks like a pass.
+
+`log_expense` raises on `amount <= 0`, so the tool is "guarded". But the model reads `-450`, decides it's obviously a typo, helpfully passes `450`, and the guard never fires. A confident, wrong ledger entry gets written.
+
+**A validation check only protects you if the bad value actually reaches it.** The model sits upstream of every guard you write, and it is trained to be helpful — which includes silently cleaning up input. The fix is defence in depth: a rule in the system prompt where the *decision* is made, plus the `raise` where the *work* is done. Neither layer alone is enough.
+
+If your case 5 passes first try, check what arguments `log_expense` actually received. Often it was never called at all — right answer, possibly for the wrong reason.
 
 ---
 
@@ -127,37 +187,31 @@ You are done when **every box** is checked:
 
 | Band | Score | What it looks like |
 |------|-------|--------------------|
-| **Excellent** | 90–100 | All boxes checked. Tool descriptions are precise and the model never mis-selects. Errors are written *for the model to act on*. `RUNS.md` includes a failure the student diagnosed and fixed. |
-| **Good** | 75–89 | Runs correctly on the happy path; one robustness case is weak. Checks exist but are shallow (only asserts the final string). |
-| **Needs work** | 60–74 | Works only on the exact demo input. Model does some arithmetic itself. `RUNS.md` filled in after the fact with no real expectations. |
-| **Incomplete** | < 60 | Hardcoded pipeline instead of model-driven tool selection, or no artifact produced. |
+| **Excellent** | 90–100 | All boxes. Both builds pass the same dataset. Tool descriptions precise; errors written *for the model to act on*. `RUNS.md` shows a failure they diagnosed and fixed. |
+| **Good** | 75–89 | Happy path solid; one Trust case weak. Eval asserts only on the final string. |
+| **Needs work** | 60–74 | Works on the demo input only. Model does some arithmetic itself. SDK build is a copy-paste that was never run against the harness. |
+| **Incomplete** | < 60 | Hardcoded pipeline instead of model-driven tool selection, or no ledger written. |
 
-**The single most common failure:** the student hardcodes the call order in Python because "the model kept getting it wrong." That is a pipeline, not an agent. The fix is always better tool descriptions and a sharper system prompt — never an `if` statement in the loop.
-
-### The trap in Run 5 (worth the whole project)
-
-Almost every first attempt fails Run 5, and it fails in a way that looks like a pass.
-
-`line_total` raises on negative hours, so the tool is "guarded". But the model reads `-3 hours`, decides it's obviously a typo, helpfully passes `3` to the tool, and the guard never fires. A confident, wrong invoice gets saved.
-
-**A validation check only protects you if the bad value actually reaches it.** The model sits upstream of every guard you write, and it is trained to be helpful — which includes silently cleaning up input. The fix is defence in depth: a rule in the system prompt where the *decision* is made, plus the `raise` where the *work* is done. Neither layer alone is enough.
-
-If a student's Run 5 passes on the first try, ask to see the arguments `line_total` actually received. Often the tool was never called at all — and that's the right answer for the wrong reason unless they can explain why.
+**The most common failure:** hardcoding the call order in Python because "the model kept getting it wrong." That's a pipeline, not an agent. The fix is always better tool descriptions and a sharper system prompt — never an `if` in the loop.
 
 ---
 
-## Stretch Goals (optional)
+## 🔁 Spendly Transfer (real product, ~30 min)
 
-1. **Multi-client batch** — one request producing three separate invoices.
-2. **Approval gate** — reuse Exercise 7 so `save_invoice` requires human `y/N` confirmation.
-3. **Markdown output** — a `save_invoice_md` tool, letting the model choose the format based on what the user asked for.
-4. **Currency conversion** — a `convert_currency(amount, to_currency)` tool with a static rate table, so a client can be billed in USD.
+Every chapter ends by moving one idea into the real Spendly codebase. This is where curriculum work becomes product work.
+
+**This chapter:** Spendly's agents already run inside the SDK's loop. Give yourself the visibility your from-scratch loop had for free.
+
+- [ ] In `prototype/core.py`, log every tool call and its result for one full user turn
+- [ ] Confirm `max_turns` is set explicitly on your `Runner.run` calls (the default may not be what you want)
+- [ ] Pick the single most dangerous tool in Spendly — the one that deletes or overwrites — and check: **can the model silently correct bad input before your validation sees it?** Add the system-prompt rule if so.
+- [ ] Write down the 3 real user messages Spendly gets wrong most often. That's the start of Spendly's golden dataset.
 
 ---
 
 ## Ship It
 
 - [ ] Commit with a message describing what the agent does, not what files changed
-- [ ] Write a short LinkedIn post: *the one thing that surprised you about making the model chain tool calls correctly*. Include your `RUNS.md` table as the proof.
+- [ ] LinkedIn post: *"I built the same agent twice — once by hand, once with the OpenAI Agents SDK, and graded both with one test suite."* Include the two results tables. That comparison is genuinely rare content.
 
-Then, and only then, move to **Step 2 — Manual Tool Use**, where we throw away the `tools=` shortcut and hand-roll the schema generation and parsing underneath it.
+Then move to **Chapter 2 — Typed Tools**, where hand-written JSON schemas die for good and Spendly Lite learns to parse `"1500 at KFC"` properly.

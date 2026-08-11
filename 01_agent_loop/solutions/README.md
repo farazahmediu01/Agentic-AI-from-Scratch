@@ -6,15 +6,30 @@
 
 ## Files
 
+All paths below are relative to the repo root; run them with `uv run python <path>`.
+
 | File | Solves | Run it |
 |------|--------|--------|
-| `loop.py` | The shared reference loop — returns `AgentRun`, takes tools as parameters | (imported) |
-| `unit_tools.py` / `unit_agent.py` | Exercise 4 — Unit Converter Agent | `uv run python 01_agent_loop/solutions/unit_agent.py` |
-| `check_agent.py` | Exercise 5 — structured trace + assertions | `uv run python 01_agent_loop/solutions/check_agent.py` |
-| `invoice_tools.py` / `invoice_agent.py` | The chapter project | `uv run python 01_agent_loop/solutions/invoice_agent.py` |
-| `check_invoice.py` | The project's 5-case check harness | `uv run python 01_agent_loop/solutions/check_invoice.py` |
+| `loop.py` | The shared reference loop — returns `AgentRun`, takes tools as parameters, retries 429s | (imported) |
+| `unit_tools.py` / `unit_agent.py` | Exercise 4 — Unit Converter Agent | `01_agent_loop/solutions/unit_agent.py` |
+| `check_agent.py` | Exercise 5 — structured trace + assertions | `01_agent_loop/solutions/check_agent.py` |
+| `expense_store.py` | Spendly Lite storage + seed data + `reset()` | (imported) |
+| `expense_tools.py` | Spendly Lite tools, hand-rolled schemas | (imported) |
+| `expense_agent.py` | **Project, from-scratch build** | `01_agent_loop/solutions/expense_agent.py` |
+| `expense_agent_sdk.py` | **Project, Agents SDK build** | `01_agent_loop/solutions/expense_agent_sdk.py` |
+| `check_expenses.py` | The 5-case golden dataset — grades **either** build | `01_agent_loop/solutions/check_expenses.py [--impl sdk]` |
+| `invoice_*.py`, `check_invoice.py` | Superseded first draft of the project (kept for reference) | |
 
 Exercises 1–3, 6 and 7 are intentionally **not** solved in code — they're small edits or open designs, and the answer key below covers what matters.
+
+### Verified state (last run 2026-08-12)
+
+| Build | Result |
+|---|---|
+| from scratch | **24/24 checks, 5/5 cases** |
+| OpenAI Agents SDK | **24/24 checks, 5/5 cases** |
+
+One dataset, two implementations, same verdict. That equivalence is the chapter's closing argument.
 
 ### The one thing to notice in `loop.py`
 
@@ -77,9 +92,23 @@ Fast signals when reviewing a student's project:
 
 ---
 
-## Two Findings From Building This Solution (use them in the debrief)
+## Findings From Building This Solution (use them in the debrief)
 
-Both were discovered by actually running the harness, not by reasoning about it. That's the point.
+Every one of these was discovered by actually running the harness, not by reasoning about it. That's the point.
+
+### 0. The stale read — the best bug in this chapter
+
+The SDK build failed case 1 while the from-scratch build passed it. Same prompt, same tools, same dataset.
+
+The SDK build called `get_budget` → `month_total` → **then** `log_expense` → `subtract`. It read the month's total *before* writing the new expense, so the total was stale by 1,500. It then reported `25,000 − 1,500 = 23,500` remaining instead of `16,000`. Every individual tool returned the correct value. The arithmetic was right. The answer was wrong.
+
+Three lessons, all of them worth more than the fix:
+
+1. **Read-then-write ordering is the model's decision, and it will get it wrong.** Nothing in the tool descriptions said the total had to be read after the write. Fixed with an explicit ordering rule in the system prompt.
+2. **This is why you run the same eval against both implementations.** A single build would have shipped green. The bug lives in the model's planning, not in either codebase, so it surfaces intermittently — a second implementation is a cheap second sample.
+3. **Assert on order only when order is causal.** Most sequences are the model's business and asserting on them punishes good agents (see finding 2). But *read-before-write returns a stale number*, and no correct arithmetic afterwards can repair it. `check_expenses.py` now asserts `log_expense` precedes `month_total`, with a comment explaining the distinction.
+
+Ask students: *"Your agent reported the right number. Would it still be right if the user had already spent something this month?"*
 
 ### 1. The guard that didn't guard
 
@@ -93,9 +122,10 @@ Three of the first-draft assertions failed on *good* behaviour:
 
 | First-draft check | Why it was wrong |
 |---|---|
-| `apply_discount` must not be called (case 2) | The model called it with `percent=0`. Legitimate. Assert the outcome, not the path. |
-| `lookup_rate` must error on an unknown role (case 3) | The model read the valid roles off the tool *description* and refused without spending a call — cheaper and smarter than what we asked for. |
-| The reply must contain `"?"` (case 4) | It asked with a numbered list of required fields. Perfectly good asking. |
+| The reply must contain the word `"negative"` (case 5) | The SDK build said *"I cannot log that expense. Please provide a positive amount."* — correct refusal, scored FAIL. Match the meaning the user needs, not one phrasing. |
+| `apply_discount` must not be called *(earlier invoice draft)* | The model called it with `percent=0`. Legitimate. Assert the outcome, not the path. |
+| A tool must error on invalid input *(earlier invoice draft)* | The model read the valid values off the tool *description* and refused without spending a call — cheaper and smarter than what we asked for. |
+| The reply must contain `"?"` *(earlier invoice draft)* | It asked with a numbered list of required fields. Perfectly good asking. |
 
 Line to land: **assert on outcomes and on what must never happen (no file written, no invented rate), not on the exact sequence of calls.** An eval that punishes an agent for finding a better path is a broken eval — and students will write that eval by default. This is the single most useful thing they can carry into Step 5.
 
