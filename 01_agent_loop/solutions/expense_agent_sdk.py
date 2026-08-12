@@ -19,29 +19,18 @@ this agent writing a wrong ledger are still yours to write.
 from __future__ import annotations
 
 import asyncio
-import os
 from dataclasses import dataclass, field
 from typing import Literal
 
-from agents import Agent, OpenAIChatCompletionsModel, Runner, function_tool, set_tracing_disabled
+from agents import Agent, Runner, function_tool
 from agents.items import ToolCallItem
-from dotenv import load_dotenv
-from openai import AsyncOpenAI
 
 import expense_tools as t
 from expense_agent import SYSTEM_PROMPT, TASK
 from expense_store import CATEGORIES
+from shared.models import make_model
 
-load_dotenv()
-set_tracing_disabled(True)
-
-MODEL = OpenAIChatCompletionsModel(
-    model=os.environ.get("MODEL_NAME", "gemini-2.5-flash"),
-    openai_client=AsyncOpenAI(
-        api_key=os.environ["OPENAI_API_KEY"],
-        base_url=os.environ["OPENAI_BASE_URL"],
-    ),
-)
+MODEL = make_model()
 
 # The SDK can enforce a closed set of categories in the schema itself, which the
 # hand-rolled version could only describe in prose. Note what this buys you: an

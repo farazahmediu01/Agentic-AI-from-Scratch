@@ -13,28 +13,21 @@ Run:  uv run python 01_agent_loop/with_sdk/agent_sdk.py
 from __future__ import annotations
 
 import asyncio
-import os
 from datetime import datetime
 
-from agents import Agent, OpenAIChatCompletionsModel, Runner, function_tool, set_tracing_disabled
-from dotenv import load_dotenv
-from openai import AsyncOpenAI
+from agents import Agent, Runner, function_tool
 
-load_dotenv()
+from shared.models import make_model
 
-# We point the SDK at Gemini's OpenAI-compatible endpoint — the same base_url
-# trick you used from scratch. The SDK does not care which provider is behind it.
-# Tracing is disabled because the hosted trace viewer wants a real OpenAI key;
-# we turn it on properly in the observability chapter.
-set_tracing_disabled(True)
-
-MODEL = OpenAIChatCompletionsModel(
-    model=os.environ.get("MODEL_NAME", "gemini-2.5-flash"),
-    openai_client=AsyncOpenAI(
-        api_key=os.environ["OPENAI_API_KEY"],
-        base_url=os.environ["OPENAI_BASE_URL"],
-    ),
-)
+# One line, and the SDK is pointed at Gemini's OpenAI-compatible endpoint — the
+# same base_url trick you used from scratch. The SDK does not care which provider
+# is behind it.
+#
+# `make_model()` reads AGENT_PROVIDER from .env and hands back either a
+# Chat Completions model (Gemini, free — the default) or a Responses model
+# (OpenAI, paid). Open `shared/models.py` and read it: it is 40 lines, and it is
+# the seam that lets the late hosted-tools chapter run without editing this file.
+MODEL = make_model()
 
 
 # -----------------------------------------------------------------------------
