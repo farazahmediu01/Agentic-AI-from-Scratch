@@ -36,13 +36,28 @@ Frameworks like OpenAI Agents SDK and Claude Agent SDK stop feeling like magic a
 | Step | Primitive | Folder | Status |
 |------|-----------|--------|--------|
 | 1 | **The Agent Loop** — call model, parse, execute tool, feed back, repeat | `01_agent_loop/` | Done |
-| 2 | **Manual Tool Use** — hand-rolled JSON schema generation, parsing, dispatch (no `tools=` shortcut) | `02_manual_tool_use/` | Pending |
+| 2 | **Typed Tools** — schemas generated from type hints, validation before the function body runs | `02_typed_tools/` | Done |
 | 3 | **Context Window Manager** — message-list pruning, summarization, token budgeting | `03_context_manager/` | Pending |
 | 4 | **Memory** — message persistence, summary memory, semantic recall via embeddings | `04_memory/` | Pending |
 | 5 | **Eval Harness** — golden dataset + LLM-as-judge from scratch | `05_evals/` | Pending |
 | 6 | **Guardrails** — input classifier + output validator + tripwire | `06_guardrails/` | Pending |
+| 7 | **Hosted Tools & the Responses API** — the only paid chapter (~$5) | `07_hosted_tools/` | Planned |
 
 Once these six are built, we read the source of `openai-agents-python` and `claude-agent-sdk` to see how the production frameworks implement the same ideas — and what they add that we didn't.
+
+### Step 7 is deliberately last, and deliberately paid
+
+Chapters 1–6 run **free** on Gemini's OpenAI-compatible endpoint, which speaks **Chat Completions**. The Agents SDK defaults to the **Responses API**. That is a real difference and we do not hide it — see `RESPONSES_VS_CHATCOMPLETIONS.md`.
+
+The choice is not a compromise; Chapters 3 and 4 *require* it. You cannot teach context-window management or memory when the server owns the transcript behind a `previous_response_id` — there would be nothing in the student's process to prune. Client-side state is a prerequisite, not a limitation.
+
+What Chat Completions genuinely cannot do is **hosted tools** — `WebSearchTool`, `FileSearchTool`, `CodeInterpreterTool`, `ComputerTool`, `HostedMCPTool`. Those run on OpenAI's servers and exist in the API, not the SDK. Step 7 is where students meet them, *after* having hand-rolled the equivalents, so the comparison lands. Budget ~$5 of OpenAI credit; one environment variable switches the whole curriculum over:
+
+```
+AGENT_PROVIDER=openai   # in .env — see shared/models.py
+```
+
+**Rule:** no chapter before Step 7 may require a paid key. If a concept cannot be taught free, it moves to Step 7 or gets hand-rolled.
 
 ---
 
@@ -54,7 +69,10 @@ Once these six are built, we read the source of `openai-agents-python` and `clau
 | **`uv`** | Fast, modern Python package manager — replaces pip + venv |
 | **`openai` SDK** | Used against any OpenAI-compatible endpoint — including Gemini's `/v1beta/openai/` |
 | **`python-dotenv`** | Keep API keys out of source |
+| **`pydantic`** | The validation layer. From Chapter 2 on, tool contracts are Pydantic models — the same choice FastAPI and the Agents SDK made |
+| **`ruff`** | Formatter + linter in one binary. Replaces black, isort, flake8 and pylint |
 | **`pyright`** | Static type checker — catches bugs before runtime |
+| **`pytest`** | The proof layer. Boundary tests run with no API key, in milliseconds |
 | **No agent framework** | The whole point |
 
 We use **Gemini free models via the OpenAI-compatible endpoint** so cost is zero while learning.
@@ -86,13 +104,43 @@ copy .env.example .env
 uv run python 01_agent_loop/from_scratch/agent.py
 ```
 
-### Type Checking
+---
+
+## The Quality Gate — non-negotiable, every chapter
+
+This repository holds the same bar a production Python repo holds. A teaching repo has no excuse for a lower one: students copy what they see, and code quality tooling is not a topic to be covered later — it is the environment the work happens in.
+
+Four commands, in this order, cheapest first:
 
 ```powershell
-uv run pyright 01_agent_loop/
+uv run ruff format .     # style   — automatic, never argued about
+uv run ruff check .      # lint    — bugs a linter sees without running code
+uv run pyright           # types   — bugs a linter cannot see
+uv run pytest            # proof   — bugs nothing sees without running the code
 ```
 
-Target: **0 errors, 0 warnings** before moving to the next step.
+**Target: all four clean.** 0 ruff findings, 0 pyright errors, 0 pyright warnings, green pytest.
+
+| Tool | What it owns | Configured in |
+|---|---|---|
+| `ruff format` | Formatting. `*.md` excluded — chapter prose contains deliberately wrong code | `[tool.ruff.format]` |
+| `ruff check` | `E W F I UP B C4 SIM RUF`. `E501` off (the formatter owns line length) | `[tool.ruff.lint]` |
+| `pyright` | `standard` mode. One `executionEnvironments` block **per script-style folder** | `[tool.pyright]` |
+| `pytest` | Collects `test_*.py` only. `check_*.py` harnesses cost real API calls and are run deliberately | `[tool.pytest.ini_options]` |
+
+### Two configuration facts that will bite whoever adds Chapter 3
+
+1. **Every chapter has its own `tools.py`** and scripts import it by bare name. A flat `extraPaths` puts them all on one search path and resolves them to whichever came first. Each script-style folder therefore gets its own `[[tool.pyright.executionEnvironments]]` block. **Add one when you add a chapter.** Same reason `[tool.ruff] src` lists them.
+2. **`check_*.py` must never be collected by pytest.** They are golden-dataset harnesses — real API calls, minutes of runtime, rate-limit pauses. `python_files = ["test_*.py"]` keeps `uv run pytest` free and fast.
+
+### Where a test belongs
+
+| Question | Where | Cost |
+|---|---|---|
+| Is a bad argument rejected? Does the enum reach the schema? | `test_*.py` | free, milliseconds |
+| Did the agent ask instead of guessing? Did it recover? | `check_*.py` | real calls, minutes |
+
+Push every assertion down to the cheap layer. Spend model calls only on what genuinely needs a model.
 
 ---
 
@@ -243,15 +291,44 @@ Chapter 1 (`01_agent_loop/`) is complete with all six layers:
 
 ---
 
+## Step 2 Completion State
+
+Chapter 2 (`02_typed_tools/`) is complete with all six layers. Retitled from the original "Manual Tool Use" plan, because Chapter 1 had already spent that material — its `TOOL_SCHEMAS`/`TOOL_REGISTRY`/`json.loads` dispatch *is* manual tool use. Chapter 1 asked *"can the model call my function?"*; Chapter 2 asks *"what happens when it calls it wrongly?"*
+
+- `from_scratch/break_it.py` — six hostile payloads through Chapter 1's dispatch. **Two do not raise**: `add(a="5", b="3") -> "53"`, and an invalid category written to storage
+- `from_scratch/handrolled.py` — ~85 lines of `isinstance` gauntlet for ONE tool, ending in the arithmetic that motivates the next file
+- `from_scratch/typed_tool.py` — **the chapter.** `@tool`: `inspect.signature` → `create_model` → `model_json_schema`. Plus `ToolError`, `explain()`, `_clean_schema()`
+- `from_scratch/tools.py`, `agent.py` — the calculator agent with `Literal`, `Annotated`, and `MAX_INVALID_CALLS`
+- `with_sdk/agent_sdk.py` + `compare.md` — `@function_tool`, and the `failure_error_function` argument for overriding the SDK's privacy-driven error default
+- `README.md` — 10 concepts, each with an inline practice, 2 challenges, 2 checkpoints
+- `EXERCISES.md` — 3 warm-ups, 2 guided builds (including rebuilding `@tool` from an empty file), 2 challenges
+- `PROJECT.md` — **Spendly Lite v2**, built twice, graded by one 7-case dataset
+- `solutions/` — `test_expense_tools.py` is **the first test suite in the curriculum**: 46 tests, no API key, ~2 seconds
+- `../SDK_BRIDGE.md` — Chapter 2 rows filled in
+- Gate: `ruff format` + `ruff check` + `pyright` + `pytest` all clean; both builds pass 34/34 golden-dataset checks
+
+**Three real defects found while building the chapter**, all documented in place. Use them in class — a found bug is worth more than an invented example:
+
+1. `amount: true` accepted as `1.0` (bool subclasses int). Found by `pytest` on its first run. Fixed with a `BeforeValidator`.
+2. That fix silently degraded the schema: with a custom validator attached, Pydantic emits raw `"gt": 0` instead of `exclusiveMinimum`, which is not a JSON Schema keyword, so the model stopped being told. Nothing crashed. Fixed by `_clean_schema()`; guarded by a test.
+3. **The one that matters most.** The system prompt's "never correct the user's value yourself" rules were deleted on the grounds that `Literal` and `Field(gt=0)` now enforce them. The golden dataset then failed three cases: given `-450`, the model flipped the sign *before* calling and logged a fabricated `450`. The type worked perfectly — it just never saw a negative number. **A type stops a bad value from being accepted; it does not stop the model from manufacturing a good one.** Rules restored, failure recorded above them in `expense_agent.py`, and taught as README §7b.
+
+---
+
 ## Development Commands
 
 | Task | Command |
 |------|---------|
 | Install / sync dependencies | `uv sync` |
-| Run a step | `uv run python 01_agent_loop/from_scratch/agent.py` |
-| Type check a chapter | `uv run pyright 01_agent_loop/` |
-| Run the SDK build | `uv run python 01_agent_loop/with_sdk/agent_sdk.py` |
-| Grade the project (both builds) | `uv run python 01_agent_loop/solutions/check_expenses.py [--impl sdk]` |
+| **The gate** (run all four before calling anything done) | `uv run ruff format . ; uv run ruff check . ; uv run pyright ; uv run pytest` |
+| Format | `uv run ruff format .` |
+| Lint (auto-fix) | `uv run ruff check . --fix` |
+| Type check everything | `uv run pyright` |
+| Unit tests (free, offline, ~2s) | `uv run pytest` |
+| Run a step | `uv run python 02_typed_tools/from_scratch/agent.py` |
+| Run the SDK build | `uv run python 02_typed_tools/with_sdk/agent_sdk.py` |
+| Check which provider/model is wired (free, no tokens) | `uv run python -m shared.models` |
+| Grade a project (both builds) | `uv run python 02_typed_tools/solutions/check_expenses.py [--impl sdk]` |
 | Add a dependency | `uv add <package>` |
 
 ---
@@ -260,7 +337,9 @@ Chapter 1 (`01_agent_loop/`) is complete with all six layers:
 
 | File | Purpose |
 |------|---------|
-| `pyproject.toml` | Project metadata and dependencies (uv reads this) |
+| `shared/models.py` | **The model factory.** `make_model()` — the one seam between Chat Completions/Gemini and Responses/OpenAI. Every `with_sdk/` file uses it; no `from_scratch/` file may |
+| `RESPONSES_VS_CHATCOMPLETIONS.md` | Why the curriculum runs on Chat Completions, what it costs, where the escape hatch is |
+| `pyproject.toml` | Project metadata and dependencies (uv reads this). Has a `[build-system]` solely so `shared/` installs as an importable package |
 | `uv.lock` | Locked dependency versions (commit this) |
 | `.env.example` | Template for API keys — copy to `.env` and fill in |
 | `.gitignore` | Excludes `.env`, `.venv`, `__pycache__` |

@@ -31,8 +31,11 @@ Each chapter teaches one mechanism, builds it by hand, rebuilds it with the SDK,
 | Ch | What You Build | Axes | Folder | Status |
 |----|---------------|------|--------|--------|
 | 1 | **The Agent Loop** — the `while` loop every framework wraps | 🧠🔒📐 | `01_agent_loop/` | ✅ Complete |
-| 2 | **Typed Tools** — schemas from type hints, validation before the body runs | 🔒 | `02_typed_tools/` | Next |
+| 2 | **Typed Tools** — schemas from type hints, validation before the body runs | 🔒📐 | `02_typed_tools/` | ✅ Complete |
 | — | *Structured outputs · context objects · memory & sessions · context window · specialists & handoffs · guardrails & approvals · observability · evals* | | | Provisional |
+| last | **Hosted Tools & the Responses API** — the one chapter that needs a paid key (~$5). Web search, file search, code interpreter: capabilities that exist in the API, not the SDK | 🔒 | `xx_hosted_tools/` | Planned |
+
+Every chapter but the last runs **free**, on Gemini's OpenAI-compatible endpoint. Why that choice, and what it costs: [`RESPONSES_VS_CHATCOMPLETIONS.md`](RESPONSES_VS_CHATCOMPLETIONS.md).
 
 Chapters beyond 2 are **deliberately not designed yet.** Each is specified only once the previous one is built and validated, so the sequence stays coherent instead of aspirational. See `references/agent-factory-map.md` for the concept checklist they're drawn from.
 
@@ -44,7 +47,21 @@ Chapters beyond 2 are **deliberately not designed yet.** Each is specified only 
 | [uv](https://docs.astral.sh/uv/) | Package manager (replaces pip + venv) |
 | OpenAI Python SDK | Transport layer to the model — nothing more |
 | Gemini (free tier) | LLM provider via OpenAI-compatible endpoint — zero cost |
+| pydantic | The validation layer — tool contracts are Pydantic models from Chapter 2 on |
+| ruff | Formatter + linter in one binary |
 | pyright | Static type checker |
+| pytest | Boundary tests — no API key, milliseconds |
+
+### The quality gate
+
+Every chapter passes all four before it ships. A teaching repo has no excuse for a lower bar than a production one — students copy what they see.
+
+```powershell
+uv run ruff format .     # style
+uv run ruff check .      # lint
+uv run pyright           # types
+uv run pytest            # proof
+```
 
 **The framework rule is scoped, not absolute.** In `from_scratch/` no agent framework is allowed — the OpenAI SDK is a transport layer and every loop, tool, memory system, eval and guardrail is hand-rolled. In `with_sdk/` the OpenAI Agents SDK is used as intended, and re-implementing what it provides defeats the point. No LangChain, no LlamaIndex, no Haystack anywhere.
 
