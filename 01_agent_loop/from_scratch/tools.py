@@ -11,11 +11,10 @@ and *how* to call the tool. We use the schema to decide *what* to dispatch
 when a tool call arrives back.
 """
 
+from collections.abc import Callable
 from datetime import datetime
-from typing import Callable
 
 from openai.types.chat import ChatCompletionToolParam
-
 
 # -----------------------------------------------------------------------------
 # Tool implementations (plain Python functions — nothing agent-specific here)

@@ -24,8 +24,9 @@ from __future__ import annotations
 import asyncio
 import sys
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable, Protocol
+from typing import Protocol
 
 import expense_store
 from expense_store import MONTHLY_BUDGETS, SEEDED_FOOD_TOTAL, all_expenses, current_month
@@ -84,11 +85,14 @@ def case_1(run: RunLike) -> list[tuple[str, bool]]:
         # business — but reading a total before writing to it returns a stale
         # number, and no amount of correct arithmetic afterwards can fix that.
         # Assert order only when the order changes the answer.
-        ("month_total was read AFTER the write, not before", (
-            "log_expense" in run.tool_names
-            and "month_total" in run.tool_names
-            and run.tool_names.index("log_expense") < run.tool_names.index("month_total")
-        )),
+        (
+            "month_total was read AFTER the write, not before",
+            (
+                "log_expense" in run.tool_names
+                and "month_total" in run.tool_names
+                and run.tool_names.index("log_expense") < run.tool_names.index("month_total")
+            ),
+        ),
         ("budget not exhausted", not run.hit_max_iterations),
     ]
 
@@ -109,12 +113,17 @@ def case_3(run: RunLike) -> list[tuple[str, bool]]:
     answer = run.final_answer.lower()
     return [
         ("NOTHING was written", len(logged_rows()) == 0),
-        ("the reply names real categories", sum(
-            c in answer for c in ("food", "transportation", "shopping", "miscellaneous")
-        ) >= 2),
-        ("it does not pretend the expense was logged", not any(
-            p in answer for p in ("i've logged", "i have logged", "logged successfully", "recorded it")
-        )),
+        (
+            "the reply names real categories",
+            sum(c in answer for c in ("food", "transportation", "shopping", "miscellaneous")) >= 2,
+        ),
+        (
+            "it does not pretend the expense was logged",
+            not any(
+                p in answer
+                for p in ("i've logged", "i have logged", "logged successfully", "recorded it")
+            ),
+        ),
     ]
 
 
@@ -124,8 +133,13 @@ def case_4(run: RunLike) -> list[tuple[str, bool]]:
     return [
         ("NOTHING was written", len(logged_rows()) == 0),
         ("log_expense was not called", "log_expense" not in run.tool_names),
-        ("it asks for the amount or the vendor", ("amount" in answer) or ("vendor" in answer)
-         or ("how much" in answer) or ("where" in answer)),
+        (
+            "it asks for the amount or the vendor",
+            ("amount" in answer)
+            or ("vendor" in answer)
+            or ("how much" in answer)
+            or ("where" in answer),
+        ),
     ]
 
 
@@ -140,17 +154,30 @@ def case_5(run: RunLike) -> list[tuple[str, bool]]:
     answer = run.final_answer.lower()
     return [
         ("NOTHING was written", len(logged_rows()) == 0),
-        ("no expense was logged at 450 either", not any(
-            r["amount"] == 450.0 for r in logged_rows()
-        )),
+        (
+            "no expense was logged at 450 either",
+            not any(r["amount"] == 450.0 for r in logged_rows()),
+        ),
         # Broadened after a real failure: the SDK build replied "I cannot log that
         # expense. Please provide a positive amount" — correct behaviour that an
         # earlier, narrower keyword list scored as a FAIL. Match the MEANING the
         # user needs (refusal + what to do next), not one phrasing of it.
-        ("the reply refuses and asks for a valid amount", any(
-            p in answer for p in ("negative", "-450", "positive", "cannot", "can't",
-                                  "greater than zero", "invalid", "confirm")
-        )),
+        (
+            "the reply refuses and asks for a valid amount",
+            any(
+                p in answer
+                for p in (
+                    "negative",
+                    "-450",
+                    "positive",
+                    "cannot",
+                    "can't",
+                    "greater than zero",
+                    "invalid",
+                    "confirm",
+                )
+            ),
+        ),
     ]
 
 

@@ -27,7 +27,6 @@ from openai.types.chat import ChatCompletionMessageParam
 
 from tools import TOOL_REGISTRY, TOOL_SCHEMAS
 
-
 # Production discipline rule #1: never let an agent loop run forever.
 # A misbehaving model + a buggy tool can burn $100 in an hour. The ceiling
 # is your circuit breaker. We'll formalize this idea in later steps.
@@ -83,7 +82,9 @@ def run_agent(user_message: str, system_prompt: str | None = None) -> str:
         # Preserve the assistant message in history *exactly as the model emitted it*.
         # The API requires this on the next turn so tool results can link back
         # to the original tool_call_id.
-        messages.append(cast(ChatCompletionMessageParam, assistant_message.model_dump(exclude_none=True)))
+        messages.append(
+            cast(ChatCompletionMessageParam, assistant_message.model_dump(exclude_none=True))
+        )
 
         # No tool calls means the model is finished. This is the loop exit.
         if not assistant_message.tool_calls:
@@ -118,9 +119,7 @@ def run_agent(user_message: str, system_prompt: str | None = None) -> str:
                 tool_fn = TOOL_REGISTRY[tool_name]
                 tool_result = tool_fn(**tool_args)
                 result_str = (
-                    tool_result
-                    if isinstance(tool_result, str)
-                    else json.dumps(tool_result)
+                    tool_result if isinstance(tool_result, str) else json.dumps(tool_result)
                 )
             except KeyError:
                 result_str = f"ERROR: unknown tool '{tool_name}'"

@@ -15,8 +15,8 @@ Two design rules are visible throughout, and both matter more than the code:
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import date
-from typing import Callable
 
 from openai.types.chat import ChatCompletionToolParam
 
@@ -76,7 +76,9 @@ def log_expense(vendor: str, amount: float, category: str, expense_date: str = "
         "notes": "",
     }
     append(expense)
-    return f"Logged {expense['id']}: PKR {amount:,.2f} at {expense['vendor']} ({resolved}) on {when}"
+    return (
+        f"Logged {expense['id']}: PKR {amount:,.2f} at {expense['vendor']} ({resolved}) on {when}"
+    )
 
 
 def month_total(category: str, month: str = "") -> float:
@@ -106,8 +108,7 @@ def list_recent(limit: int = 5) -> str:
     if not rows:
         return "No expenses recorded yet."
     return "\n".join(
-        f"{r['date']}  {r['vendor']:<20} PKR {r['amount']:>10,.2f}  {r['category']}"
-        for r in rows
+        f"{r['date']}  {r['vendor']:<20} PKR {r['amount']:>10,.2f}  {r['category']}" for r in rows
     )
 
 

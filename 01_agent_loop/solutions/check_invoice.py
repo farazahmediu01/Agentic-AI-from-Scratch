@@ -15,14 +15,14 @@ from __future__ import annotations
 
 import sys
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
-
-PAUSE_BETWEEN_CASES = 30.0  # seconds — stay under the free-tier rate limit
 
 from invoice_agent import SYSTEM_PROMPT
 from invoice_tools import TOOL_REGISTRY, TOOL_SCHEMAS
 from loop import AgentRun, run_agent
+
+PAUSE_BETWEEN_CASES = 30.0  # seconds — stay under the free-tier rate limit
 
 
 def normalise(text: str) -> str:
@@ -83,10 +83,20 @@ def case_3(run: AgentRun) -> list[tuple[str, bool]]:
             "the reply names at least one valid role",
             any(role in answer for role in ("backend", "frontend", "devops", "consulting")),
         ),
-        ("it says the role is invalid", any(
-            phrase in answer for phrase in ("not a valid", "not on the rate card",
-                                            "no rate", "cannot", "can't", "not available")
-        )),
+        (
+            "it says the role is invalid",
+            any(
+                phrase in answer
+                for phrase in (
+                    "not a valid",
+                    "not on the rate card",
+                    "no rate",
+                    "cannot",
+                    "can't",
+                    "not available",
+                )
+            ),
+        ),
         ("no rate was invented for welding", "line_total" not in run.tool_names),
     ]
 
@@ -106,9 +116,11 @@ def case_4(run: AgentRun) -> list[tuple[str, bool]]:
 
 def case_5(run: AgentRun) -> list[tuple[str, bool]]:
     return [
-        ("line_total rejected the negative hours", any(
-            tc.name == "line_total" and tc.errored for tc in run.tool_calls
-        ) or "line_total" not in run.tool_names),
+        (
+            "line_total rejected the negative hours",
+            any(tc.name == "line_total" and tc.errored for tc in run.tool_calls)
+            or "line_total" not in run.tool_names,
+        ),
         ("NO file was written", "save_invoice" not in run.tool_names),
         ("the agent explains the problem", bool(run.final_answer.strip())),
     ]

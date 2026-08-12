@@ -17,8 +17,9 @@ from __future__ import annotations
 import json
 import os
 import time
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable, cast
+from typing import cast
 
 from dotenv import load_dotenv
 from openai import OpenAI, RateLimitError
@@ -111,8 +112,9 @@ def _create_with_retry(
             if attempt == MAX_RETRIES:
                 raise
             if verbose:
-                print(f"  ! rate limited — retrying in {delay:.0f}s "
-                      f"(attempt {attempt}/{MAX_RETRIES})")
+                print(
+                    f"  ! rate limited — retrying in {delay:.0f}s (attempt {attempt}/{MAX_RETRIES})"
+                )
             time.sleep(delay)
             delay *= 2  # exponential backoff
     raise RuntimeError("unreachable")
@@ -224,9 +226,7 @@ def run_agent(
             )
 
             # STEP 5 (prep) — the result goes back into the conversation.
-            messages.append(
-                {"role": "tool", "tool_call_id": tool_call.id, "content": result_str}
-            )
+            messages.append({"role": "tool", "tool_call_id": tool_call.id, "content": result_str})
 
     run.hit_max_iterations = True
     run.final_answer = (
