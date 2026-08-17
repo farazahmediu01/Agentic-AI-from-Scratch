@@ -7,10 +7,10 @@
 
 | Part | Core | Full |
 |---|---|---|
-| This README (§1–§11) | 5.5 hrs | 7.5 hrs |
+| This README (§1–§11) | 5.75 hrs | 7.75 hrs |
 | [`EXERCISES.md`](EXERCISES.md) — Track 1️⃣ drills | 2 hrs | 6–8 hrs |
 | [`PROJECT.md`](PROJECT.md) — Tracks 2️⃣ + 3️⃣ | 3.5 hrs | 4.5 hrs |
-| **Chapter total** | **≈ 11 hrs** | **≈ 18–20 hrs** |
+| **Chapter total** | **≈ 11.25 hrs** | **≈ 18–20 hrs** |
 
 **Plan 3 sessions.** Every section below is marked `[core]` or `[depth]` and carries its own estimate; the numbers above are the sum of those estimates. If they ever disagree, the header is the bug — tell us.
 
@@ -724,6 +724,43 @@ Name the limitation, because it is the hook for what comes next.
 Your tools now reject bad **input**. Nothing yet checks the agent's **output** — the final message to the user is still free-form prose that no schema has ever seen. The model can be given perfect arguments, execute perfect tools, and still answer with a number it made up in the summary.
 
 Input has a contract. Output does not. That is the next chapter.
+
+### 🐞 And it is not hypothetical — it is happening in this chapter, right now
+
+There is a **real defect in `solutions/expense_agent.py`, deliberately left in place.** It is marked with a comment block above `TASK`.
+
+On some runs, the agent does everything right and still reports the wrong number:
+
+```
+-> log_expense(1500)                          <- logged
+-> get_budget("Food & Dining")                <- 25000
+-> month_total("Food & Dining")               <- 9000   (includes the 1500)
+-> subtract(25000, 9000)                      <- 16000
+
+FINAL ANSWER: "...you have 14,500 PKR remaining."
+```
+
+It subtracted the just-logged expense a second time. Every tool call is correct. The sentence is wrong.
+
+**This chapter's dataset cannot see it.** The assertion is `"16000" in answer`, so on a bad run the failure is one anonymous line among thirty-four and reads as model noise. It went unnoticed for the entire chapter, and it was found only when Chapter 3 replaced that check with `reply.logged.remaining == 16000` — which named it on the first run.
+
+### ▶ Practice 13 — see it for yourself (15 min) `[core]`
+
+```powershell
+uv run python 02_typed_tools/solutions/expense_agent.py
+```
+
+Run it **five times.** Each time, compare the number in the final sentence against what `subtract` actually returned in the trace above it.
+
+1. How many of the five were wrong?
+2. Would this chapter's golden dataset have failed on the wrong ones? Check the assertion in `check_expenses.py` `case_1` and answer precisely.
+3. The prompt's last line is *"Finish with one clear sentence for the user, including the numbers you looked up."* Rewrite that line so the failure becomes impossible. Test your version five times.
+
+**You're done when:** you have a wrong run recorded, and a rewritten prompt line that survives five runs.
+
+> Compare your rewrite against the `REPORTING NUMBERS` block in `03_structured_outputs/solutions/expense_agent_v3.py` — that is the fix that shipped, and yours may well be better.
+>
+> Then sit with the uncomfortable part: **the fix is a prompt, not a type.** The reply was a positive float in a well-formed sentence. Nothing about its *shape* was wrong, so no schema could have objected and no validator could have caught it. Types stop bad values; schemas stop malformed answers; only a check that compares what was *said* against what was *computed* stops this one. Chapter 3 §8 is that argument in full.
 
 ---
 

@@ -78,6 +78,48 @@ When a tool rejects your arguments:
 Finish with one clear sentence for the user, including the numbers you looked up.
 """
 
+# -----------------------------------------------------------------------------
+# A KNOWN DEFECT, LEFT IN ON PURPOSE. Read this before "fixing" the prompt.
+#
+# Look at the last line of the prompt above:
+#
+#     "Finish with one clear sentence for the user, including the numbers you
+#      looked up."
+#
+# That is under-specified, and on some runs it produces a wrong answer. The
+# agent calls every tool correctly -- logs 1500, reads the budget, reads the
+# post-write month total, calls subtract -- and then reports a number that no
+# tool returned, because it subtracts the just-logged expense a SECOND time.
+#
+#     subtract(25000, 9000) -> 16000        <- what the tools computed
+#     "you have 14,500 remaining"           <- what the user was told
+#
+# Chapter 2 cannot see this. Its golden dataset asserts `"16000" in answer`,
+# so on a bad run the failure is one anonymous line among thirty-four checks
+# and reads as model noise. It went unnoticed for the whole chapter.
+#
+# WHY IT IS STILL HERE
+# --------------------
+# Because it is Chapter 3's opening argument, and a found bug is worth more
+# than an invented example. Chapter 3 replaces the substring assertion with
+# `reply.logged.remaining == 16000` and the failure is named in one line, on
+# the first run. Section 1 of that chapter is this exact defect.
+#
+# The fix -- a REPORTING NUMBERS block spelling out that every figure must be a
+# value some tool returned, unchanged -- lives in
+# `03_structured_outputs/solutions/expense_agent_v3.py`. Diff the two prompts
+# once you have read Chapter 3 section 8.
+#
+# The lesson is the division of labour, and it is why the fix is a PROMPT and
+# not a type: the reply's shape was flawless. A positive float in a valid
+# sentence. No schema could have objected.
+#
+#     a type       makes a failure impossible to EXPRESS
+#     a schema     makes it impossible to HIDE
+#     a cross-check makes it impossible to SHIP
+#     a prompt     does none of the three -- it only lowers the rate
+# -----------------------------------------------------------------------------
+
 
 TASK = (
     "I spent 1500 at KFC on lunch today. Log it, then tell me how much of my "
