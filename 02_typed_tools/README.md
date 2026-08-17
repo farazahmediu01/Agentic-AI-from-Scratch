@@ -5,6 +5,25 @@
 > **You built:** an agent that can call your functions.
 > **You will build:** an agent that cannot call them *wrongly*.
 
+| Part | Core | Full |
+|---|---|---|
+| This README (§1–§11) | 5.5 hrs | 7.5 hrs |
+| [`EXERCISES.md`](EXERCISES.md) — Track 1️⃣ drills | 2 hrs | 6–8 hrs |
+| [`PROJECT.md`](PROJECT.md) — Tracks 2️⃣ + 3️⃣ | 3.5 hrs | 4.5 hrs |
+| **Chapter total** | **≈ 11 hrs** | **≈ 18–20 hrs** |
+
+**Plan 3 sessions.** Every section below is marked `[core]` or `[depth]` and carries its own estimate; the numbers above are the sum of those estimates. If they ever disagree, the header is the bug — tell us.
+
+Finish the **core** column and you are ready for Chapter 3 with nothing missing.
+
+> ### 📖 What `[depth]` means, and why it exists
+>
+> The `[depth]` blocks in this chapter are mostly about **how the machinery is built** — reading `inspect.signature`, `create_model`, and JSON Schema generation. That is genuinely interesting metaprogramming and it is genuinely optional.
+>
+> It is optional because the skill this chapter is actually for is *"I can define a tool the model cannot call wrongly, and I can tell when the contract I published is wrong."* You get that from **using** the decorator and from reading the failures. You do not get it from writing the decorator.
+>
+> An earlier version of this chapter had you rebuild the decorator from an empty file. It took 60–90 minutes, and the students who finished it could write Python metaprogramming — not agents. Skip the depth blocks the first time through. Come back for them when you're curious, or when you need to debug one.
+
 ---
 
 ## Before you start
@@ -29,7 +48,7 @@ Run all four before you call any exercise finished. "It works on my machine" is 
 
 ---
 
-## 1. The question this chapter answers
+## 1. The question this chapter answers `[core]` · 15 min
 
 Chapter 1 ended with a working agent. Here is the line that made it work:
 
@@ -70,7 +89,7 @@ Rank them from most dangerous to least dangerous.
 
 ---
 
-## 2. Watch it break
+## 2. Watch it break `[core]` · 20 min
 
 ```powershell
 uv run python 02_typed_tools/from_scratch/break_it.py
@@ -118,9 +137,11 @@ The danger is not proportional to how *broken* something looks. It is proportion
 
 ---
 
-## 3. Do it by hand first
+## 3. Do it by hand first `[core]` · 25 min
 
-The obvious fix is to check the arguments yourself. So do that — once, properly, for a single tool.
+The obvious fix is to check the arguments yourself. So here is that fix, written out once, properly, for a single tool.
+
+**Read this file. Do not write it.** Its whole job is to present you with a bill.
 
 ```powershell
 uv run python 02_typed_tools/from_scratch/handrolled.py
@@ -169,9 +190,9 @@ Then answer, in a comment above your new code:
 
 ---
 
-## 4. One declaration, three outputs
+## 4. One declaration, three outputs `[core]` · 20 min
 
-So the goal is not "add validation" — you just did, and it does not scale. The goal is:
+So the goal is not "add validation" — you just read one, and it does not scale. The goal is:
 
 > **One declaration that produces the signature, the schema the model reads, and the check on the way in.**
 
@@ -197,32 +218,61 @@ The move is to stop treating that line as documentation.
 >
 > This is the single most important shift in the chapter. It is also why the SDK, FastAPI, and every serious modern Python tool converged on the same trick: read the annotations, generate everything else.
 
-Open `from_scratch/typed_tool.py` and read `tool()`. It is about thirty lines and does exactly three things:
+So `from_scratch/typed_tool.py` gives you a decorator that does it:
 
 ```python
-signature = inspect.signature(fn)          # 1. what arguments exist
-args_model = create_model(..., **fields)   # 2. build a validator
-schema = ... args_model.model_json_schema() # 3. publish the contract
+@tool
+def add(a: float, b: float) -> float:
+    """Add two numbers."""
+    return a + b
 ```
 
-Both the validator and the schema come from the *same* source. **They cannot disagree.** That is the whole design.
+That one declaration now produces all three artefacts. The validator and the schema are built from the *same* source, which means **they cannot disagree** — and that is the entire design. Three copies kept in sync by hope became one copy that cannot drift.
 
-### ▶ Practice 4 — generate a schema (10 min)
+> **You are not going to write this decorator.** `@tool` exists here so you can see what the SDK's `@function_tool` is, in code short enough to read in one sitting. In §10 you will switch to the SDK's version and never hand-roll it again. If you want to know how it is built, §4b has it — that block is optional, and deliberately so.
+
+### ▶ Practice 4 — generate a schema (15 min)
 
 ```powershell
 cd 02_typed_tools/from_scratch
 uv run python -c "import json; from tools import add; print(json.dumps(add.schema, indent=2))"
 ```
 
-1. Compare it, key for key, with the hand-written schema for `add` in `01_agent_loop/from_scratch/tools.py`.
+1. Compare it, key for key, with the hand-written schema for `add` in `01_agent_loop/from_scratch/tools.py`. What is in one and not the other?
 2. Delete `add`'s docstring and run it again. What happens, and why is that the right behaviour?
 3. Change `a: float` to `a: int` and diff the schema.
 
-**You're done when:** you can point at the line in `tool()` responsible for each key in the output.
+**You're done when:** you can name, for every key in the generated schema, **which part of the function declaration produced it** — the name, the annotation, the default, or the docstring.
 
 ---
 
-## 5. Closed sets: `Literal`
+## 4b. How `tool()` builds it `[depth]` · 30 min
+
+*Skip this on a first pass. Nothing later in the chapter depends on it.*
+
+Open `from_scratch/typed_tool.py` and read `tool()`. About thirty lines, three moves:
+
+```python
+signature = inspect.signature(fn)           # 1. what arguments exist
+args_model = create_model(..., **fields)    # 2. build a validator
+schema = args_model.model_json_schema()     # 3. publish the contract
+```
+
+The details worth having if you ever need to debug a generated schema:
+
+- **`get_type_hints(fn, include_extras=True)`** — without `include_extras`, `Annotated[float, Field(gt=0)]` silently collapses to plain `float` and every constraint you wrote vanishes. This is the single most common way a generated schema loses information.
+- **`create_model(name, __config__=ConfigDict(extra="forbid"), **fields)`** — `fields` maps each parameter to `(annotation, default)`, with `...` marking required. `extra="forbid"` is what becomes `additionalProperties: false`.
+- **`_clean_schema()`** — strips Pydantic's `title` keys and renames constraint names Pydantic emits raw. See §6; that rename exists because of a real bug.
+
+### ▶ Practice 4b — break the extraction (15 min) `[depth]`
+
+In `typed_tool.py`, change `get_type_hints(fn, include_extras=True)` to drop the `include_extras` argument. Regenerate `log_expense`'s schema.
+
+**You're done when:** you can state exactly which keys disappeared, and why the tool still *works* while the model is now less likely to call it correctly.
+
+---
+
+## 5. Closed sets: `Literal` `[core]` · 20 min
 
 Chapter 1 had ten expense categories and could only ask for them in English:
 
@@ -267,7 +317,7 @@ round_amount.call('{"value": 1.5, "mode": "UP"}')
 
 **You're done when:** the tool exists, the enum appears in `round_amount.schema`, and you can quote the rejection message for `"UP"`.
 
-### ⚡ Challenge 5b — should `"UP"` be rejected?
+### ⚡ Challenge 5b — should `"UP"` be rejected? `[depth]` · 20 min
 
 `"UP"` is obviously what the user meant. Strictness rejected it; a `BeforeValidator` that lowercases first would accept it.
 
@@ -275,7 +325,7 @@ Argue both sides in three sentences each, then pick one and implement it. There 
 
 ---
 
-## 6. Ranges, formats, and the defaults you did not choose
+## 6. Ranges, formats, and the defaults you did not choose `[core]` · 25 min
 
 `Literal` handles membership. `Annotated` + `Field` handles everything else:
 
@@ -320,7 +370,7 @@ uv run pytest 02_typed_tools/solutions/ -k boolean -v
 
 ---
 
-## 7. Errors as instructions
+## 7. Errors as instructions `[core]` · 20 min
 
 A boundary that only says "no" costs you a turn. A boundary that says "no, **and here is the shape**" costs you a turn and buys a correct call.
 
@@ -360,7 +410,7 @@ Ask it of every error you raise: **can the model do something about this?** Hand
 
 ---
 
-### 7b. A type stops a bad value. It does not stop an *invented* one.
+### 7b. A type stops a bad value. It does not stop an *invented* one. `[core]` · 20 min
 
 This is the most important paragraph in the chapter, and it was learned the expensive way — by shipping the mistake and having the golden dataset catch it.
 
@@ -397,7 +447,7 @@ Case 7 is sharper still. The rejection message *literally says* "if the correct 
 
 The deleted lines are back in `solutions/expense_agent.py`, marked, with the failure recorded above them.
 
-### ⚡ Challenge 7c — reproduce it
+### ⚡ Challenge 7c — reproduce it `[depth]` · 30 min
 
 Delete the `NEVER SILENTLY CORRECT THE USER'S DATA` block from `SYSTEM_PROMPT` and run case 5 alone:
 
@@ -425,7 +475,7 @@ Notice the progression the curriculum is walking: **prose → type → boundary 
 
 ---
 
-## 8. The loop learns to recover
+## 8. The loop learns to recover `[core]` · 30 min
 
 With a boundary in place, the loop gains one branch — and the branch is the point of the whole chapter.
 
@@ -469,13 +519,13 @@ then edit `TASK` to `"Log 1200 at Careem for transportation on 05/08/2026 (the 5
 
 **You're done when:** you have one run in your terminal showing a rejection followed by a successful call.
 
-### ⚡ Challenge 8b — the distinction Chapter 1 could not draw
+### ⚡ Challenge 8b — the distinction Chapter 1 could not draw `[depth]` · 10 min
 
 `loop.py` has both `tool_names` and `executed_names`. Explain, in two sentences, why an eval that asserts `"log_expense" in run.tool_names` is now **wrong**, and what it should assert instead.
 
 ---
 
-## 9. Test the boundary, not the agent
+## 9. Test the boundary, not the agent `[core]` · 30 min
 
 Here is the structural payoff, and it is bigger than the validation.
 
@@ -538,7 +588,9 @@ Knowing where that line is drawn is the difference between using types well and 
 
 ---
 
-## 10. Now the SDK
+## 10. Now the SDK `[core]` · 90 min — **the longest section, and the point of the chapter**
+
+Everything up to here was scaffolding. From this section onward, in this chapter and every chapter after it, **`@function_tool` is how you define a tool.** You will not hand-roll another one.
 
 ```powershell
 uv run python 02_typed_tools/with_sdk/agent_sdk.py
@@ -596,11 +648,72 @@ In `with_sdk/agent_sdk.py`, comment out `failure_error_function=explain_to_model
 
 ---
 
+## 11. Everything you just learned, in SDK vocabulary `[core]` · 15 min
+
+Every idea from this chapter has a `@function_tool` spelling. This table is the one to keep:
+
+| The idea | Ours | SDK |
+|---|---|---|
+| Closed set | `Literal[...]` | `Literal[...]` — **unchanged, it's Python** |
+| Range / format | `Annotated[float, Field(gt=0)]` | **unchanged** |
+| No invented arguments | `ConfigDict(extra="forbid")` | automatic — `additionalProperties: false` |
+| Tool description | the docstring | the docstring |
+| Argument descriptions | `Field(description=...)` | `Field(description=...)`, **or** an `Args:` block in the docstring |
+| Rename the tool the model sees | *(we couldn't)* | `@function_tool(name_override="...")` |
+| Error message policy | `explain()` | `failure_error_function=` |
+| Hide a tool conditionally | *(we couldn't)* | `is_enabled=` |
+
+The first four rows are the important ones: **your type annotations transfer to the SDK completely unchanged.** That is not a coincidence. Both designs read the same annotations because the annotations were always the right place to put the contract.
+
+The last two rows are capabilities you did not build and now get for free. `is_enabled=` in particular is a trust primitive — a tool the model cannot see is a tool it cannot call — and it returns in the guardrails chapter.
+
+### ▶ Practice 12 — the blank file (45 min) 🚀 **mandatory**
+
+**This is the most important task in the chapter.** Everything before it had you read, predict or modify existing code. Recognising code and producing code are different skills, and only the second one is fluency.
+
+Open a genuinely empty file: `exercises/dice_agent.py`. No copying from `with_sdk/`. Keep the docs open — that's what you'd do at work.
+
+Build an SDK agent for a **dice and probability** assistant. Not expenses; the domain is deliberately unfamiliar so you can't pattern-match your way through it.
+
+Three tools, all with `@function_tool`:
+
+| Tool | Contract |
+|---|---|
+| `roll(sides, count)` | `sides` one of 4, 6, 8, 10, 12, 20 · `count` 1–100 · returns the individual rolls and the total |
+| `probability_at_least(sides, count, target)` | all three positive ints, `target` reachable given `sides × count` · returns a percentage |
+| `describe_dice(notation)` | a string like `"3d6"`, pattern-enforced · returns a plain-English reading |
+
+Then run it against: *"Roll 3 six-sided dice, then tell me the chance of getting at least that total again."*
+
+**You're done when:**
+
+- [ ] the file imports from `agents`, and contains **no** hand-written JSON Schema
+- [ ] `sides` is a `Literal`, not an `int` with an `if`
+- [ ] `count` and `target` use `Annotated[int, Field(...)]` — no range checks in any function body
+- [ ] `describe_dice("3z6")` is rejected **before** the body runs, and you can prove it (put a `print` on line 1 of the body and watch it not fire)
+- [ ] one tool has a `failure_error_function` and you can say why that tool and not the others
+- [ ] the agent answers the two-step question correctly in one run
+- [ ] `uv run ruff check . ; uv run pyright` — clean
+
+**If you get stuck for more than 15 minutes on a single error, that's the exercise working.** Write down what the error said and what you tried before you look anything up.
+
+### ⚡ Challenge 12b — same agent, hostile user `[depth]` · 20 min
+
+Ask your dice agent: *"Roll 3 dice with 7 sides."*
+
+Seven-sided dice don't exist and your `Literal` says so. Record what the agent does. Then ask: *"Roll 1000 dice."*
+
+**You're done when:** you can say which of the two failures the model recovered from gracefully, which it didn't, and what you'd change — a type, a message, or the prompt.
+
+---
+
 ## ✅ Checkpoint 2 — the sentence
 
 You should now be able to finish this without hedging:
 
-> *"I built the mechanism that turns a signature into a validated tool contract. The SDK does it with `@function_tool`. What it does for me is ______. What it decides for me that I should check is ______."*
+> *"I saw the mechanism that turns a signature into a validated tool contract. The SDK does it with `@function_tool`. What it does for me is ______. What it decides for me that I should check is ______. And I have written one from an empty file."*
+
+That last clause is not decoration. If you skipped Practice 12, you have not finished this chapter — you have read it.
 
 ---
 
@@ -616,10 +729,10 @@ Input has a contract. Output does not. That is the next chapter.
 
 ## Where to go now
 
-| Order | File | What it is |
-|---|---|---|
-| 1 | [`EXERCISES.md`](EXERCISES.md) | The graded set — 3 warm-ups, 2 guided builds, 2 challenges |
-| 2 | [`PROJECT.md`](PROJECT.md) | **Spendly Lite v2** — built twice, graded by one dataset |
-| 3 | [`../SDK_BRIDGE.md`](../SDK_BRIDGE.md) | The running map of our code → SDK abstraction |
-| — | `exercises/` | **Your** workspace. Already wired into the quality gate |
-| — | `solutions/` | Reference builds. **Open after you attempt, not before.** |
+| Order | File | Track | What it is |
+|---|---|---|---|
+| 1 | [`EXERCISES.md`](EXERCISES.md) | 1️⃣ Drills | Warm-ups and guided builds — rotating domains, never expenses |
+| 2 | [`PROJECT.md`](PROJECT.md) | 2️⃣ + 3️⃣ | **Spendly Lite v2** (the spine) **and** your own agent's v2 |
+| 3 | [`../SDK_BRIDGE.md`](../SDK_BRIDGE.md) | — | The running map of our code → SDK abstraction |
+| — | `exercises/` | — | **Your** workspace. Already wired into the quality gate |
+| — | `solutions/` | — | Reference builds. **Open after you attempt, not before.** |

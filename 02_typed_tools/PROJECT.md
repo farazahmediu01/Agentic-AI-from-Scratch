@@ -1,4 +1,17 @@
-# Chapter 2 Project — Spendly Lite v2
+# Chapter 2 Project
+
+Two tracks. Both are required; they teach different things.
+
+| Track | What | Time | Graded on |
+|---|---|---|---|
+| 2️⃣ **The Spine** | Spendly Lite v2 — locked spec, locked dataset | 2.5 hrs | The 7-case golden dataset, **plus Chapter 1's 5 cases still passing** |
+| 3️⃣ **Your Own Agent** | The domain *you* picked in Chapter 1, v2 | 1 hr | Evidence — 3 runs, what broke, what you changed |
+
+Track 2 teaches you to work inside a spec someone else wrote and not break what already worked. Track 3 teaches you to build without one. Doing only one of them leaves a real gap.
+
+---
+
+# 2️⃣ The Spine — Spendly Lite v2
 
 > **The increment:** Spendly Lite's tools stop trusting the model.
 >
@@ -124,6 +137,7 @@ Tick every box. Each is checkable by someone else.
 - [ ] `uv run python 02_typed_tools/solutions/check_expenses.py --impl sdk` → **all checks pass**
 - [ ] one dataset graded both; you did not weaken a check to make a build pass
 - [ ] at least one recorded run shows a rejection **followed by a successful retry**
+- [ ] **the regression rule:** Chapter 1's five cases still pass. A chapter that breaks the previous chapter's dataset is not done, however good its new features are
 
 ### The gate
 
@@ -177,6 +191,42 @@ Model: gemini-2.5-flash   Date: 2026-08-13
 ```
 
 That last section is the one worth writing carefully. The two builds will not behave identically — different turn counts, different tool ordering, sometimes different rejection counts. **Every difference you can explain is a thing you understand about the SDK.**
+
+---
+
+# 3️⃣ Your Own Agent — v2
+
+> The agent you started in Chapter 1, in **your** domain. SDK-only, blank file, no scaffolding from us.
+
+**The increment this chapter:** your tools stop trusting the model.
+
+Whatever your agent does — a recipe planner, a workout logger, a D&D companion, a study-schedule builder — it has at least one tool where a wrong argument matters. Give that tool a real contract:
+
+- every closed set is a `Literal`
+- every range or format is `Annotated[..., Field(...)]`
+- **zero `if` statements** doing work a type could do
+- one `failure_error_function`, on the tool where you decided the model needs the detail
+
+Then break it on purpose and write down what happened.
+
+## The rubric — identical in every chapter
+
+```
+[ ] The chapter's capability is present and working in YOUR agent
+[ ] RUNS.md has 3 new runs, dated, with actual output pasted in
+[ ] One paragraph: what broke, and what you changed
+[ ] It is not an expense tracker
+```
+
+**You are graded on evidence, not features.** An agent that broke in an interesting way, with the breakage documented and understood, passes this. A polished agent with no `RUNS.md` does not.
+
+At least one of your three runs must be a **deliberate attack** on your own tool — send it something a confused model would plausibly send, and record what came back.
+
+### The question to answer in your paragraph this chapter
+
+> Which of your tool's rules could **not** move into a type, and where did you have to put it instead?
+
+Every real agent has at least one. Finding yours is the point.
 
 ---
 

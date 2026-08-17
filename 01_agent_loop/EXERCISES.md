@@ -16,9 +16,11 @@ Work top to bottom. Difficulty climbs deliberately.
 
 ---
 
-## Warm-up
+## Warm-up `[core]` · 1 hr
 
-### Exercise 1 — The `percentage_of` tool ⭐
+*Exercises 1–3 are the core path. Everything below them is `[depth]` — genuinely worthwhile, and not required before Chapter 2.*
+
+### Exercise 1 — The `percentage_of` tool ⭐ `[core]`
 
 Add a tool `percentage_of(value, percent)` that returns `percent`% of `value`.
 
@@ -37,7 +39,7 @@ run_agent("A laptop costs 85000. Calculate 15% of it, then subtract that from th
 
 ---
 
-### Exercise 2 — Change the agent's behaviour with the system prompt only ⭐
+### Exercise 2 — Change the agent's behaviour with the system prompt only ⭐ `[core]`
 
 Do not touch any tool or loop code. Edit **only** the `system_prompt` string so the agent:
 
@@ -56,7 +58,9 @@ Test with three inputs: a valid math question, a time question, and `"Write me a
 
 ---
 
-### Exercise 3 — Instrument the loop ⭐⭐
+### Exercise 3 — Instrument the loop ⭐⭐ `[core]`
+
+> Do not skip this one. The project's acceptance checklist requires the run summary it produces.
 
 Add a run summary printed after the loop finishes:
 
@@ -80,9 +84,9 @@ Count these with plain Python counters inside `run_agent`.
 
 ---
 
-## Guided Build
+## Guided Build `[depth]` · 1.5 hrs
 
-### Exercise 4 — The Unit Converter Agent ⭐⭐⭐
+### Exercise 4 — The Unit Converter Agent ⭐⭐⭐ `[depth]`
 
 **Time: ~30 min.** Build a new agent in `unit_agent.py` + `unit_tools.py`.
 
@@ -110,7 +114,7 @@ Then run this task, which requires **at least three tool calls across at least t
 
 ---
 
-### Exercise 5 — Return a structured trace, not just a string ⭐⭐⭐
+### Exercise 5 — Return a structured trace, not just a string ⭐⭐⭐ `[depth]`
 
 **Time: ~40 min.** Right now `run_agent` returns a bare `str`. That's untestable. Change it to return a structured result.
 
@@ -160,11 +164,11 @@ print("All checks passed.")
 
 ---
 
-## Challenge
+## Challenge `[depth]` · 1 hr
 
 > No step-by-step instructions. Design it yourself.
 
-### Exercise 6 — Multi-turn conversation ⭐⭐⭐⭐
+### Exercise 6 — Multi-turn conversation ⭐⭐⭐⭐ `[depth]`
 
 Right now every call to `run_agent` starts from an empty history. Build a **REPL** where the user can chat continuously and the agent remembers everything earlier in the session:
 
@@ -190,7 +194,7 @@ Requirements you must satisfy however you see fit:
 
 ---
 
-### Exercise 7 — The human approval gate ⭐⭐⭐⭐⭐
+### Exercise 7 — The human approval gate ⭐⭐⭐⭐⭐ `[depth]`
 
 Add a tool with a **real side effect**: `write_file(filename: str, content: str)`.
 

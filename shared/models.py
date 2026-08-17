@@ -9,12 +9,13 @@ the **Chat Completions API** against Gemini's OpenAI-compatible endpoint, becaus
 
   * it is free, so nobody is billed for learning, and
   * Chat Completions is *stateless* — every byte the model sees lives in a list
-    you own. Chapters 3 and 4 (context management, memory) are unteachable on
-    server-side state, because there would be nothing in your process to prune.
+    you own. The state chapters (sessions, and the context window) are
+    unteachable on server-side state, because there would be nothing in your
+    process to prune.
 
 See `../RESPONSES_VS_CHATCOMPLETIONS.md` for the full comparison.
 
-That decision is correct for Chapters 1-5, and wrong for the late chapter on
+That decision is correct for nearly every chapter, and wrong for the late one on
 hosted tools (web search, file search, code interpreter), which only exist on
 the Responses API. Rather than refactor every chapter when we get there, we put
 the switch in one place now and flip an environment variable later.

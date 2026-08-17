@@ -1,6 +1,13 @@
 # Chapter 2 — Exercises
 
-> Work these in order. Each tier assumes the one before it.
+> **Track 1️⃣ — Drills.** Small, isolated, disposable reps. Deliberately *not* expenses: the spine's job is expenses, and doing forty tasks in one domain teaches you that domain rather than the concept.
+>
+> | | Time | What |
+> |---|---|---|
+> | **Core** | **2 hrs** | Warm-ups 1–4 and Guided Build A |
+> | **Full** | **6–8 hrs** | Core + Guided Builds B and C + both challenges |
+>
+> Work them in order. Each tier assumes the one before it.
 >
 > **The gate for every exercise, no exceptions:**
 >
@@ -21,7 +28,7 @@
 
 ---
 
-## Warm-up 1 — Add a typed tool (15 min)
+## Warm-up 1 — Add a typed tool `[core]` (15 min)
 
 Add a tool to `from_scratch/tools.py`:
 
@@ -50,7 +57,7 @@ Do **not** write a single `if` statement for any of those rules.
 
 ---
 
-## Warm-up 2 — Close a set that is currently open (15 min)
+## Warm-up 2 — Close a set that is currently open `[core]` (15 min)
 
 `from_scratch/tools.py` has `percentage_of(value, percent)`. Suppose the product decides percentages are only ever used for three things: `"tax"`, `"discount"`, `"tip"`.
 
@@ -64,9 +71,9 @@ Add a required `purpose` argument that can only be one of those three, and make 
 
 ---
 
-## Warm-up 3 — Break the schema, watch the model suffer (20 min)
+## Warm-up 3 — Break the schema, watch the model suffer `[core]` (20 min)
 
-This one is about the contract, not the code.
+This one is about the contract, not the code. It touches the spine rather than a throwaway domain, because the point is what a broken contract does to *stored data* — and only the spine has stored data.
 
 In `solutions/expense_tools.py`, change `category: Category` to `category: str` — nothing else. Run the golden dataset case 3 only:
 
@@ -91,13 +98,67 @@ print([r['category'] for r in expense_store.all_expenses() if r['notes'] != 'see
 
 ---
 
+## Warm-up 4 — The same tool, both ways `[core]` (20 min) 🚀
+
+Take `split_bill` from Warm-up 1 and write it a second time in `exercises/split_sdk.py` — same constraints, same behaviour, but with `@function_tool` instead of `@tool`.
+
+Change nothing about the annotations. That is the exercise: find out how little there is to change.
+
+**You're done when:**
+
+- [ ] the two function bodies are **identical**
+- [ ] the two signatures are **identical**
+- [ ] you can list every line that differs between the files — there should be very few
+- [ ] you have printed both generated schemas and named every difference
+- [ ] you can answer: if the annotations transfer unchanged, what exactly did you learn by writing `@tool` first?
+
+> That last question is not rhetorical and it doesn't have a flattering answer in every case. Write down what you actually think.
+
+---
+
 # Tier 2 — Guided builds
 
 *Can you apply the concepts to something new?*
 
+> **Do Guided Build A.** B and C are `[depth]` — worthwhile, but not on the path to Chapter 3.
+
 ---
 
-## Guided build 1 — Your own `@tool` decorator, from an empty file (60–90 min)
+## Guided build A — A tool suite in an unfamiliar domain `[core]` (60 min) 🚀
+
+Blank file: `exercises/library_agent.py`. SDK only — `@function_tool` throughout. No `@tool`, no hand-written schema.
+
+You are building the tool layer for a **library catalogue** assistant. Four tools:
+
+| Tool | Contract |
+|---|---|
+| `search_books(query, genre, max_results)` | `genre` a closed set of 8 · `max_results` 1–20, default 5 |
+| `check_availability(isbn)` | `isbn` pattern-enforced: 13 digits, optional hyphens |
+| `reserve(isbn, member_id, days)` | `days` one of 7, 14, 21 · `member_id` pattern `M` + 6 digits |
+| `list_genres()` | no arguments — and getting "no arguments" right is its own small lesson |
+
+Back them with an in-memory dict of ~10 books. The data is not the point; the contracts are.
+
+**You're done when:**
+
+- [ ] every constraint above is a type or a `Field` — **zero `if` statements** for validation
+- [ ] `reserve` has a `failure_error_function` and the other three do not, and you can justify the split
+- [ ] you wrote `test_library_tools.py` with **8 attack payloads**, no API key, under 2 seconds
+- [ ] the agent handles *"find me a mystery novel and reserve it for two weeks"* — which requires chaining two tools
+- [ ] the agent handles *"reserve ISBN 12345"* by **asking** for what's missing rather than inventing a member ID
+- [ ] `uv run pyright` — 0 errors
+
+> That second-to-last box is the one that fails most often, and it is a §7b problem, not a typing problem. If your agent invents a member ID, the fix is in the instructions, not the annotations.
+
+---
+
+## Guided build B — Your own `@tool` decorator, from an empty file `[depth]` (60–90 min)
+
+> ### ⚠️ Read this before starting
+>
+> **This exercise is optional, and it used to be mandatory.** It was the largest single time investment in the chapter, and cutting it is a deliberate decision: it teaches Python metaprogramming, which is a fine thing to know and is not what this curriculum is for. `@function_tool` does this job in production and you will never ship your own.
+>
+> Do it if you want to understand `inspect` and `create_model` properly, or if you like this kind of puzzle. **Do not do it because you think Chapter 3 needs it.** It doesn't.
 
 Do not copy `typed_tool.py`. Open a blank file, `my_tool.py`, and rebuild it. You may look at the finished version **only after** your version passes the acceptance tests below, or after 45 minutes of being genuinely stuck.
 
@@ -139,7 +200,7 @@ Step 6 was the longest step, and it produces no functionality — the validation
 
 ---
 
-## Guided build 2 — Port Chapter 1's unit-converter agent (45 min)
+## Guided build C — Port Chapter 1's unit-converter agent `[depth]` (45 min)
 
 `01_agent_loop/solutions/unit_tools.py` has a hand-written unit converter: hand-rolled schemas, string unit names, prose descriptions.
 
@@ -162,13 +223,13 @@ Rebuild it as `02_typed_tools/exercises/unit_tools.py` using `@tool`, and make e
 
 ---
 
-# Tier 3 — Challenges
+# Tier 3 — Challenges `[depth]`
 
 *No step-by-step. Design it yourself.*
 
 ---
 
-## Challenge 1 — The adversarial dataset
+## Challenge 1 — The adversarial dataset `[depth]` (90 min)
 
 Write `exercises/test_adversarial.py`: **25 hostile payloads** against Spendly Lite v2's tools that are not already in `solutions/test_expense_tools.py`.
 
@@ -195,11 +256,11 @@ Starting points for the kinds of thinking that produce good cases:
 - [ ] `uv run pytest` is green
 - [ ] you can name the **class** of attack you are still not defended against
 
-> This file is the seed of your Chapter 5 golden dataset. Write it as though someone else will inherit it, because you will.
+> This file is the seed of your Chapter 6 golden dataset. Write it as though someone else will inherit it, because you will.
 
 ---
 
-## Challenge 2 — Where does validation stop?
+## Challenge 2 — Where does validation stop? `[depth]` (90 min)
 
 Build one tool, `transfer_budget(from_category, to_category, amount)`, that moves money between two category budgets for the current month.
 
@@ -235,4 +296,4 @@ Ask of each rule: **to check this, do I need to look at anything other than the 
 
 ## Where next
 
-`PROJECT.md` — Spendly Lite v2. It combines every concept in this chapter into one thing you build twice and grade once.
+`PROJECT.md` — two tracks. **Spendly Lite v2** (the spine) combines every concept in this chapter into one thing you build twice and grade once. **Your Own Agent v2** applies the same concepts to the domain you picked in Chapter 1, from a blank file, graded on evidence.

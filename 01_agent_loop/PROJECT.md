@@ -1,8 +1,21 @@
-# Chapter 1 Project — Spendly Lite v1
+# Chapter 1 Project
 
-> **Every chapter ends with a project, and it is always the same project.** Spendly Lite grows with you: an agent loop today, typed tools next, then structured outputs, memory, specialists, guardrails, and evals. You are not building throwaway exercises — you are building one app, one capability at a time.
+Two tracks. Both are required; they teach different things.
 
-**Time: ~2 hours. Build it in `project/` inside this folder.**
+| Track | What | Time | Graded on |
+|---|---|---|---|
+| 2️⃣ **The Spine** | Spendly Lite v1 — our spec, our dataset | 3–4 hrs | The 5-case golden dataset |
+| 3️⃣ **Your Own Agent** | The domain you picked at the top of the README | 1 hr | Evidence — 3 runs, what broke, what you changed |
+
+Track 2 teaches you to hit a spec someone else wrote. Track 3 teaches you to build without one. Every chapter from here has both.
+
+---
+
+# 2️⃣ The Spine — Spendly Lite v1
+
+> **The spine is always the same project.** Spendly Lite grows with you: an agent loop today, typed tools next, then structured outputs, sessions, evals, specialists, guardrails. You are not building throwaway exercises — you are building one app, one capability at a time. Its spec and seed data are **locked**, because determinism is what makes it gradeable.
+
+**Time: 3–4 hours** (the old "~2 hours" counted the from-scratch build and not the SDK build, the adapter, or the dataset). **Build it in `project/` inside this folder.**
 
 **Axes:** 🧠 State · 🔒 Trust (this is the first project that can *damage* something) · 📐 Proof
 
@@ -94,6 +107,14 @@ The same agent, same system prompt, same tool logic — on `Agent` + `Runner` + 
 agent = Agent(name="Spendly Lite", instructions=SYSTEM_PROMPT, model=MODEL, tools=[...])
 result = await Runner.run(agent, user_message, max_turns=15)
 ```
+
+> ### ⚠️ That `await` is the first async code in this curriculum
+>
+> If `await`, `async def` and `asyncio.run()` are unfamiliar, stop here and do **Chapter 0's async section** — it's about 40 minutes and it will save you an afternoon of confusing errors.
+>
+> The three facts you need right now: `Runner.run` is a coroutine, so it must be `await`ed; `await` is only legal inside an `async def`; and something has to start the event loop, which is `asyncio.run(main())` at the bottom of your file. There is also `Runner.run_sync(...)` if you want to postpone all of this — it wraps the same call and needs no `async` anywhere.
+>
+> An earlier version of this file handed you `await` with none of that explained. That was a real gap, not a test of resourcefulness.
 
 Then compare, honestly:
 
@@ -193,6 +214,35 @@ If your case 5 passes first try, check what arguments `log_expense` actually rec
 | **Incomplete** | < 60 | Hardcoded pipeline instead of model-driven tool selection, or no ledger written. |
 
 **The most common failure:** hardcoding the call order in Python because "the model kept getting it wrong." That's a pipeline, not an agent. The fix is always better tool descriptions and a sharper system prompt — never an `if` in the loop.
+
+---
+
+# 3️⃣ Your Own Agent — v1 (1 hr)
+
+> The domain you picked at the top of the README. This is the track that ends up in your portfolio.
+
+**The increment this chapter:** a working loop, in your domain, with two tools.
+
+Build `my_agent/agent.py`. You may copy your own `loop.py` — that is your code and reusing it is the correct instinct. You may not copy Spendly Lite's tools; write tools that mean something in *your* domain.
+
+Two tools minimum, and they must be chainable: the agent should need one tool's output to call the other. That is the whole lesson of Chapter 1, and a single-tool agent doesn't demonstrate it.
+
+## The rubric — identical in every chapter
+
+```
+[ ] The chapter's capability is present and working in YOUR agent
+[ ] RUNS.md has 3 new runs, dated, with actual output pasted in
+[ ] One paragraph: what broke, and what you changed
+[ ] It is not an expense tracker
+```
+
+**Graded on evidence, not features.** Three logged runs of a rough agent beats a polished agent with nothing recorded. One of your three runs should be a question your agent handles *badly* — find it, record it, and say what you'd try.
+
+### The question to answer in your paragraph this chapter
+
+> Did the model ever pick the wrong tool, or call them in the wrong order? What did you change — the tool descriptions or the system prompt — and did it work?
+
+Almost everyone's first answer is "I added an `if` to the loop." If that was yours, undo it and fix the descriptions instead. A hardcoded call order is a pipeline, not an agent.
 
 ---
 

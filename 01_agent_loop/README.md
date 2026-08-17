@@ -4,7 +4,16 @@
 
 **Axes:** 🧠 State (the message list *is* the agent's memory) · 🔒 Trust (tools are permissions; limits are circuit breakers) · 📐 Proof (a golden dataset that outlives your implementation)
 
-**Budget:** ~60 min concepts · ~60 min exercises · ~2 hr project · ~150 model calls (free tier)
+| Part | Core | Full |
+|---|---|---|
+| This README — 9 concepts, each with a practice | 2.75 hrs | 3 hrs |
+| [`EXERCISES.md`](EXERCISES.md) — Track 1️⃣ drills | 1 hr | 3.5 hrs |
+| [`PROJECT.md`](PROJECT.md) — Tracks 2️⃣ + 3️⃣ | 4.5 hrs | 5 hrs |
+| **Chapter total** | **≈ 8 hrs** | **≈ 11.5 hrs** |
+
+**Plan 2–3 sessions.** Roughly 150 model calls on the free tier.
+
+> **The old header said "~4 hrs" for all of it.** That was wrong — adding up this chapter's own per-task estimates gives 10–11. If you were pacing yourself against the old number and feeling slow, you weren't; the number was. Finish the **core** column and you can start Chapter 2 with nothing missing.
 
 ---
 
@@ -18,10 +27,12 @@ Every chapter in this curriculum has six layers. Do them in order:
 |---|---|---|
 | 1 Concept | this README | The mechanism, taught plainly |
 | 2 From scratch | `from_scratch/` | You build the mechanism by hand |
-| 3 Practice | inline + `EXERCISES.md` | Predict, run, break, extend |
-| 4 SDK | `with_sdk/` | The same thing with the OpenAI Agents SDK |
+| 3 Practice | inline + `EXERCISES.md` | Track 1️⃣ drills — predict, run, break, extend |
+| 4 SDK | `with_sdk/` | The same thing with the OpenAI Agents SDK — **the destination** |
 | 5 Bridge | `../SDK_BRIDGE.md` | Our code → SDK abstraction → what it does for us |
-| 6 Project | `PROJECT.md` | **Spendly Lite** — the app we grow all curriculum long |
+| 6 Project | `PROJECT.md` | Track 2️⃣ **Spendly Lite** + Track 3️⃣ **your own agent** |
+
+> **Chapter 1 hand-rolls more than any later chapter, on purpose.** The loop, the message array and the tool-call JSON are the three things you must be able to picture while debugging at 2am, so you build all three by hand here. From Chapter 2 on, the hand-rolled layer shrinks fast and the SDK layer grows. By Chapter 4 the app is SDK-only.
 
 Reference solutions are in `solutions/`. **Open them only after attempting.** Looking first feels efficient and teaches nothing.
 
@@ -36,11 +47,44 @@ uv run python 01_agent_loop/from_scratch/agent.py
 
 You're ready when the script prints iterations and a final answer. If it errors on a missing key, your `.env` isn't filled in.
 
+### 3️⃣ Pick your own agent's domain — do this before you read further (10 min)
+
+You will build **three** things across this curriculum, and one of them is entirely yours.
+
+| Track | What | Domain |
+|---|---|---|
+| 1️⃣ Drills | Small disposable exercises | Ours, rotating — dice, timers, converters |
+| 2️⃣ The Spine | Spendly Lite, the app that grows every chapter | Expenses, fixed |
+| 3️⃣ **Your Own Agent** | **Yours.** Starts here, gains a capability every chapter | **You choose, now** |
+
+Track 3 is the one that ends up in your portfolio, and it is the only one where nobody hands you a spec. Pick a domain you actually care about and know something about — that knowledge is the scarce ingredient, not the code.
+
+Good picks look like: a recipe planner, a workout logger, a D&D session companion, a study-schedule builder, a plant-care assistant, a fantasy-league helper.
+
+**Two rules:**
+
+- **It must not be an expense tracker.** That's the spine's job, and the whole point of a second domain is that you can't pattern-match your way through it.
+- **It must have at least three things worth doing** — the tools you'll add in Chapter 2 need somewhere to live.
+
+Write it down now, in one sentence, in a new file `my_agent/README.md`:
+
+> *"My agent helps ______ do ______ by ______."*
+
+**You're done when:** that file exists and the sentence is specific enough that someone else could tell whether your agent worked.
+
 > **Expect rate limits.** The Gemini free tier allows about **15 requests per minute**, and one agent run is 6–8 requests. Two runs back to back can return `429 RESOURCE_EXHAUSTED`. That is not a bug in your code — wait a minute and re-run. (`solutions/loop.py` shows how to retry with exponential backoff.)
 
 ---
 
-## Concept 1 — The Mental Model: A Restaurant Kitchen  🧠
+> ### On `[core]` and `[depth]` in this chapter
+>
+> Later chapters mark sections `[core]` (the critical path) and `[depth]` (skippable on a first pass). **Chapter 1 is almost entirely core**, and that is not laziness in the marking — it is what a foundation chapter looks like. All nine concepts below are the loop, and you cannot skip part of the loop.
+>
+> Chapter 1's depth lives in two places: the guided builds and challenges in [`EXERCISES.md`](EXERCISES.md), and the second (SDK) build of the project. Those are where the optional hours are.
+
+---
+
+## Concept 1 — The Mental Model: A Restaurant Kitchen  🧠 `[core]` · 15 min
 
 Imagine a head chef who can read recipes and decide what to cook, but **cannot physically touch anything** in the kitchen. They have cooks they can shout to:
 
@@ -95,7 +139,7 @@ The insight: `add` cannot be issued in iteration 1 because its input doesn't exi
 
 ---
 
-## Concept 2 — The Five Steps in Code  🧠
+## Concept 2 — The Five Steps in Code  🧠 `[core]` · 20 min
 
 ```
 1. Send the conversation so far to the LLM.       <- chat.completions.create(...)
@@ -129,7 +173,7 @@ Then find the exact line number in `agent.py` that printed each one.
 
 ---
 
-## Concept 3 — The Conversation Is Just a List of Dicts  🧠
+## Concept 3 — The Conversation Is Just a List of Dicts  🧠 `[core]` · 20 min
 
 There is no hidden state. No session object. No memory system. The agent's entire "mind" is this:
 
@@ -180,7 +224,7 @@ Before iteration 1: **2** (system + user). One iteration with N tool calls adds 
 
 ---
 
-## Concept 4 — Breaking It On Purpose  🧠
+## Concept 4 — Breaking It On Purpose  🧠 `[core]` · 15 min
 
 The fastest way to understand why a line exists is to delete it and watch the failure.
 
@@ -211,7 +255,7 @@ You can now state what makes the loop run, what makes it stop, and what happens 
 
 ---
 
-## Concept 5 — How the Model Sees a Tool: The Schema  🔒
+## Concept 5 — How the Model Sees a Tool: The Schema  🔒 `[core]` · 20 min
 
 The model never sees your Python. It only sees the JSON schema:
 
@@ -261,7 +305,7 @@ Restore the good one when finished.
 
 ---
 
-## Concept 6 — The Registry: From String to Function  🔒
+## Concept 6 — The Registry: From String to Function  🔒 `[core]` · 25 min
 
 The model sends back the *string* `"multiply"`. Something must turn that into a Python call:
 
@@ -295,7 +339,7 @@ Then break it deliberately: **delete only the registry entry**, keep the schema,
 
 ---
 
-## Concept 7 — The Exit Condition  🧠
+## Concept 7 — The Exit Condition  🧠 `[core]` · 15 min
 
 Nothing in your code decides when the agent is finished. **The model does.**
 
@@ -327,7 +371,7 @@ Record the three task strings.
 
 ---
 
-## Concept 8 — The Circuit Breaker  🔒
+## Concept 8 — The Circuit Breaker  🔒 `[core]` · 10 min
 
 ```python
 MAX_ITERATIONS = 10
@@ -355,7 +399,7 @@ Either is defensible **with a reason** — the point is recognising it as a desi
 
 ---
 
-## Concept 9 — A Tool Crash Must Not Kill the Agent  🔒
+## Concept 9 — A Tool Crash Must Not Kill the Agent  🔒 `[core]` · 20 min
 
 ```python
 try:

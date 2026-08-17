@@ -130,19 +130,63 @@ The standing rule from here on:
 
 ---
 
-## Chapters 3+ — to come
+## Chapter 3 — Structured Outputs
 
-Rows are added as each chapter lands. Planned coverage, in the order the curriculum will build it:
+**Axes:** 📐 Proof · 🧠 State
 
-| Concept | Likely SDK abstraction |
-|---|---|
-| Structured outputs | `output_type=` |
-| Per-run dependencies | `RunContextWrapper`, `context=` |
-| Conversation memory | `SQLiteSession` |
-| Context window management | compaction / summarisation |
-| Specialists & routing | `handoffs=[...]`, agents-as-tools |
-| Guardrails | `@input_guardrail`, `@output_guardrail` |
-| Human approval | `needs_approval=True` |
-| Observability | `RunConfig`, tracing |
-| Evals | our harness (the SDK does not provide this) |
-| **Hosted tools** (paid chapter, last) | `WebSearchTool`, `FileSearchTool`, `CodeInterpreterTool`, `HostedMCPTool` — **Responses API only**; flip `AGENT_PROVIDER=openai` |
+| We built | SDK abstraction | What it does for us |
+|---|---|---|
+| `JSON_PROMPT` — 11 lines describing keys, begging for no code fences | *(nothing)* | The schema **is** the description. Nothing to write, nothing to drift out of sync |
+| `json.loads(raw)` | handled | Parsing — 3/8 of real responses survived it |
+| `_FENCE` / `_FIRST_OBJECT` / `_TRAILING_COMMA` regexes | *(unnecessary)* | Constrained generation means there are no fences to strip |
+| `ExpenseReply.model_validate(parsed)` | handled | Validation, before `final_output` exists |
+| a retry-and-repair loop | handled | Retry on a malformed response |
+| *(we could not build this)* | `"strict": true` in `response_format` | **Constrained decoding in the model server** — a layer beneath us |
+| `dict[str, Any]` at the call site | `result.final_output: YourModel` | A typed object; `pyright` checks the fields you read |
+| four optional branch fields | `output_type=SpendlyReply` | One argument replaces the whole ladder |
+| `@model_validator` — exactly one branch | *(nothing)* | See below |
+| `Category` (Ch2's `Literal`) on an output field | same | The closed set now constrains what the agent **says**, not just what it calls |
+
+### 📐 The eval upgrade is the real payoff
+
+Chapter 2 made the *input* boundary a pure function and bought 46 offline unit tests. Chapter 3 makes the *output* a typed value and buys evals that mean something:
+
+```python
+# Chapter 2 — a classifier built out of str.find
+("the answer states 17500", "17500" in answer)
+("it asks for the amount",  "how much" in answer or "amount" in answer)
+
+# Chapter 3
+("remaining is correct",    run.reply.logged.remaining == 17500)
+("it asked for the RIGHT thing", run.reply.need_more_info.missing == ["category"])
+```
+
+The first pair is wrong in both directions — `"17500" in answer` passes on *"you spent 17500 of your 17500 budget"*, and `"amount" in answer` passes on *"I logged that amount."* **Structured outputs are not a feature; they are what makes evaluation possible**, which is why they land before the evals chapter rather than after.
+
+### 🔒 Three things that do NOT transfer
+
+**A shape is not a fact.** `output_type=` guarantees `remaining` is a float. It guarantees nothing about whether that float matches what `subtract` returned. Chapter 2 §7b showed that a type stops a bad value but not an invented one; the Chapter 3 version is that a schema stops a malformed answer but not a well-formed false one. Same failure, better clothes.
+
+**"Exactly one of these" is not expressible.** A union of four optional fields satisfies its schema when zero are set and when two are. JSON Schema cannot portably say otherwise, so `replies.py` enforces it in a `@model_validator` that runs *after* the model has spoken. That is a guardrail — the first one in the curriculum — and Chapter 8 gives it a decorator.
+
+**Your retry budget is still yours.** The SDK retries a malformed response. It does not retry the free-tier 429 that actually stops your demo, and Chapter 1's hand-rolled backoff was silently lost in the move to `Runner.run`. Generalise it: **when you adopt a framework, the things you built that it does not provide do not announce themselves on the way out.**
+
+---
+
+## Chapters 4+ — to come
+
+Rows are added as each chapter lands. Planned coverage, in the order the curriculum will build it — this table mirrors the roadmap in `CLAUDE.md`, and **anything past the next chapter is a hypothesis, not a promise**:
+
+| Ch | Concept | Likely SDK abstraction |
+|---|---|---|
+| 4 | Sessions & state — persistence *and* per-run dependencies, taught together because dependency injection **is** a state question | `SQLiteSession`, `RunContextWrapper`, `context=` |
+| 5 | Context window management — Chapter 4's failure mode | compaction / summarisation |
+| 6 | Evals | our harness (the SDK does not provide this) |
+| 7 | Specialists & routing | `handoffs=[...]`, agents-as-tools |
+| 8 | Guardrails & human approval | `@input_guardrail`, `@output_guardrail`, `needs_approval=True` |
+| 9 | Observability — tracing, streaming, cost & token accounting | `RunConfig`, tracing, `Runner.run_streamed()` |
+| 10 | Serving & MCP | FastAPI, `MCPServerStdio` / `MCPServerSse` |
+| 11 | **Hosted tools** (the paid chapter) | `WebSearchTool`, `FileSearchTool`, `CodeInterpreterTool`, `HostedMCPTool` — **Responses API only**; flip `AGENT_PROVIDER=openai` |
+| 12 | Cold build capstone | all of the above, unfamiliar domain, no scaffolding |
+
+**Evals land in the middle, not at the end.** From Chapter 6 onward, *"the eval suite is still green"* is an acceptance criterion for every later chapter — which is what converts a growing project into a compounding one, and is the closest thing in this curriculum to the daily experience of maintaining an agent.
