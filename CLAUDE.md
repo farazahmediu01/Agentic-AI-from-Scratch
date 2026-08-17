@@ -20,7 +20,9 @@ This is not a personal experiment — it is a **teaching resource**. Instructors
 
 Students need **working Python**, not beginner Python: functions, dicts, loops, exceptions, classes, imports, and comfort reading a traceback.
 
-The following are **taught in Chapter 0**, not assumed: decorators, type hints beyond the basics (`Annotated`, `Literal`, `get_type_hints`), Pydantic models, and `async`/`await`. A student who skips Chapter 0 will stall in Chapter 2.
+The following are **taught in Chapter 0**, not assumed: type hints that do work (`list[X]`, `X | None`, `Callable`, `cast`), decorators, dataclasses, Pydantic, `async`/`await`, and writing a pytest test. A student who skips Chapter 0 will stall in Chapter 2.
+
+**Chapter 0's scope rule, applied when it was built:** a concept earns a place only if it appears in Ch1–3 *without being taught in place* **and** a student who doesn't know it is stuck rather than merely slower. That is why `Literal` and `Annotated` are **not** in Chapter 0 — Ch2 §5 and §6 teach them properly, in the context where they earn their keep, and duplicating that would strip them of their motivation. Apply the same test before adding anything.
 
 No AI/ML background is needed. `PYTHON_ROADMAP.md` is the deeper self-study track for anyone who finds Chapter 0 hard.
 
@@ -148,7 +150,7 @@ Chapters are specified **only after the previous one is built and validated**. T
 
 | Ch | What You Build | Depth signature | Axes | Status |
 |----|---------------|---|------|--------|
-| 0 | **Python for Agents** — decorators, `Annotated`/`Literal`, Pydantic, async | prerequisite bridge | — | 📋 Specified, not built |
+| 0 | **Python for Agents** — typing, decorators, dataclasses, Pydantic, async, pytest | prerequisite bridge | — | ✅ Built |
 | 1 | **The Agent Loop** | 🔨 spike-heavy, by design | 🧠🔒📐 | ✅ Built + retrofitted |
 | 2 | **Typed Tools** | 🔨 one spike, then SDK | 🔒📐 | ✅ Built + retrofitted |
 | 3 | **Structured Outputs** | 🔨 failing spike → 🚀 | 📐🧠 | ✅ Built |
@@ -404,6 +406,34 @@ These were validated in Ch1 and Ch2 and every later chapter should copy them:
 
 ## Chapter Completion State
 
+### Chapter 0 — `00_python_for_agents/` ✅ built
+
+The prerequisite bridge. Six sections, ≈6 hrs core. No SDK layer and no Spendly increment — nothing agentic happens here, so Layers 4 and 5 do not apply. Every section ends with a **📍 where you'll meet this** box naming the exact file and line in Ch1–3.
+
+- Opens with a **6-question diagnostic**, one per section, so a strong student skips the chapter in ten minutes instead of skipping the two sections they actually needed
+- `examples/foundations.py` — `list[X]`, `X | None` narrowing, `Callable` registries, `cast()`, dataclasses with `default_factory` and `@property`
+- `examples/decorator_lab.py` — proves `@x` is literally `f = x(f)`; a timing decorator; **the `functools.wraps` bug** (a wrapper that eats the docstring produces a tool the model cannot understand, and nothing crashes); and the registry decorator that is 80% of Ch2's `@tool`
+- `examples/pydantic_lab.py` — multi-error reports, and the **bool-is-an-int trap** presented as the real bug this repo shipped
+- `examples/async_lab.py` — **the centrepiece.** Six experiments with measured timings
+- `solutions/namecheck.py` + `test_namecheck.py` — the project
+
+**Async is 75 of the chapter's 270 minutes**, because it is the concept most often skipped and the one that then breaks everything downstream. The model is **one person, several machines** (laundry — deliberately not a kitchen, so it does not collide with Ch1's restaurant). The six experiments each kill one misconception, and the timings are real:
+
+| # | Kills | Measured |
+|---|---|---|
+| 1 | "I called it, so it ran" | returns a coroutine object |
+| 2 | **"I made it async, so it's fast"** | 3 sequential awaits = **1.51s** |
+| 3 | — | same 3 gathered = **0.62s** |
+| 4 | **the invisible one** | `asyncio.sleep` **0.51s** vs `time.sleep` **1.50s**, identical code |
+| 5 | "async makes CPU work parallel" | 0.35s vs 0.37s — gather is *slower* |
+| 6 | "why is async everywhere" | function colouring, and `run_sync` |
+
+Experiment 4 is the one to teach hardest — it is the only one that makes the event loop visible, and the failure it describes is silent in production.
+
+**The project is `namecheck.py`** — "is this startup name available?", checking domain/handle/trademark concurrently. Chosen because the three questions are genuinely independent, so concurrency is motivated rather than decorative, and because its structure *is* Chapter 1's: a registry, dispatch by name, a typed report. The only thing Chapter 1 adds is that a model picks the entries. `--slow` runs the same checks sequentially: 1.50s vs 0.60s.
+
+Two type-level decisions are documented in the code because both are things a student will hit and mis-fix: `CheckFn` uses `Coroutine` rather than `Awaitable` (`asyncio.run` requires a coroutine, and pyright is right to object), and `REGISTRY` in `foundations.py` uses `Callable[..., float]` rather than a precise signature (a named-parameter call cannot be checked against a positional `Callable`, and Ch2 buys that checking back at the boundary).
+
 ### Chapter 1 — `01_agent_loop/` ✅ built + retrofitted
 
 - `from_scratch/agent.py` + `tools.py` — the five-step loop with `MAX_ITERATIONS`, error handling, typed
@@ -505,7 +535,7 @@ The first chapter designed under the depth policy, and the first SDK-only spine.
 |------|---------|
 | `shared/models.py` | **The model factory.** `make_model()` — the one seam between Chat Completions/Gemini and Responses/OpenAI. Every `with_sdk/` file uses it; no spike file may |
 | `SDK_BRIDGE.md` | Our code → SDK abstraction → what it does for us. Grows every chapter |
-| `PYTHON_ROADMAP.md` | The deeper self-study track behind Chapter 0 |
+| `PYTHON_ROADMAP.md` | Deeper Python self-study. **Gitignored** — do not link it from public docs |
 | `RESPONSES_VS_CHATCOMPLETIONS.md` | Why the curriculum runs on Chat Completions, what it costs, where the escape hatch is |
 | `pyproject.toml` | Project metadata and dependencies. Has a `[build-system]` solely so `shared/` installs as an importable package |
 | `uv.lock` | Locked dependency versions (commit this) |

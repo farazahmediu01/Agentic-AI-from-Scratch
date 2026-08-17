@@ -62,6 +62,9 @@ target-version = "py312"
 src = [
     ".",
     "shared",
+    "00_python_for_agents/examples",
+    "00_python_for_agents/solutions",
+    "00_python_for_agents/exercises",
     "01_agent_loop/from_scratch",
     "01_agent_loop/solutions",
     "01_agent_loop/with_sdk",
@@ -103,7 +106,7 @@ docstring-code-format = true
 exclude = ["*.md"]
 
 [tool.pyright]
-include = ["shared", "01_agent_loop", "02_typed_tools", "03_structured_outputs"]
+include = ["shared", "00_python_for_agents", "01_agent_loop", "02_typed_tools", "03_structured_outputs"]
 exclude = ["**/__pycache__", ".venv"]
 pythonVersion = "3.12"
 typeCheckingMode = "standard"
@@ -119,6 +122,18 @@ typeCheckingMode = "standard"
 # directory, so `01_agent_loop/from_scratch/agent.py` sees ITS `tools.py` and
 # `02_typed_tools/from_scratch/agent.py` sees ITS one. Add one block per new
 # script-style folder; nothing above it needs to change.
+[[tool.pyright.executionEnvironments]]
+root = "00_python_for_agents/examples"
+extraPaths = ["00_python_for_agents/examples"]
+
+[[tool.pyright.executionEnvironments]]
+root = "00_python_for_agents/solutions"
+extraPaths = ["00_python_for_agents/solutions"]
+
+[[tool.pyright.executionEnvironments]]
+root = "00_python_for_agents/exercises"
+extraPaths = ["00_python_for_agents/exercises", "00_python_for_agents/solutions"]
+
 [[tool.pyright.executionEnvironments]]
 root = "01_agent_loop/from_scratch"
 extraPaths = ["01_agent_loop/from_scratch"]
@@ -167,6 +182,6 @@ root = "."
 [tool.pytest.ini_options]
 # Only `test_*.py` is collected. `check_*.py` harnesses cost real API calls and
 # are run deliberately, never as part of `uv run pytest`.
-testpaths = ["shared", "01_agent_loop", "02_typed_tools", "03_structured_outputs"]
+testpaths = ["shared", "00_python_for_agents", "01_agent_loop", "02_typed_tools", "03_structured_outputs"]
 python_files = ["test_*.py"]
 addopts = "-q"

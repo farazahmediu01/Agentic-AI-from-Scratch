@@ -30,7 +30,7 @@ By the end you should be able to say:
 
 You need **working Python**, not beginner Python: functions, dicts, loops, exceptions, classes, imports, and comfort reading a traceback.
 
-You do **not** need decorators, `Annotated`/`Literal`, Pydantic, or `async`/`await` — those are taught in **Chapter 0**. Skip Chapter 0 and you will stall in Chapter 2. `PYTHON_ROADMAP.md` is the deeper self-study track if Chapter 0 moves too fast.
+You do **not** need type hints beyond the basics, decorators, dataclasses, Pydantic, `async`/`await`, or pytest — those are **Chapter 0**, which is about 6 hours and opens with a 6-question diagnostic so you can skip the parts you already know. Skip Chapter 0 entirely and you will stall in Chapter 2.
 
 No AI/ML background required.
 
@@ -38,7 +38,7 @@ No AI/ML background required.
 
 | Ch | What You Build | Axes | Status |
 |----|---------------|------|--------|
-| 0 | **Python for Agents** — decorators, `Annotated`/`Literal`, Pydantic, async | — | 📋 Specified |
+| 0 | **Python for Agents** — typing, decorators, dataclasses, Pydantic, async, pytest | — | ✅ Built |
 | 1 | **The Agent Loop** — the `while` loop every framework wraps | 🧠🔒📐 | ✅ Built |
 | 2 | **Typed Tools** — validation before the function body runs | 🔒📐 | ✅ Built |
 | 3 | **Structured Outputs** — typed answers, and evals that stop guessing | 📐🧠 | ✅ Built |
