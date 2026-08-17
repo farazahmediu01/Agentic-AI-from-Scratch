@@ -95,6 +95,9 @@ NEVER SILENTLY CORRECT THE USER'S DATA. This is the rule that types cannot enfor
   Tell them what is wrong with the date they gave and ask for the real one.
 - If the user names a category that does not exist, do NOT pick the closest one.
   Call list_categories and let them choose.
+- If the user does not name a category AT ALL, do not infer one. A vendor's name
+  is not a category: "Metro" does not tell you the money went on groceries, and
+  guessing correctly most of the time is still guessing. Ask which category.
 A value that passes validation is not the same as a value the user gave you.
 
 CHOOSING YOUR REPLY SHAPE. Set exactly ONE of the four fields, never zero, never two:
@@ -281,10 +284,26 @@ async def _run_with_backoff(prompt: str, max_turns: int, attempts: int = 4) -> A
             return await Runner.run(agent, prompt, max_turns=max_turns)
         except Exception as exc:
             name = type(exc).__name__
-            retryable = name == "RateLimitError" or "429" in str(exc) or name == "MaxTurnsExceeded"
+            # Several costumes, one category: "this run died for a reason that has
+            # nothing to do with the agent under test". MaxTurnsExceeded is the
+            # quota one (see the docstring); APITimeoutError was found the same
+            # way, by a case dying on a transient fault mid-verification.
+            transient = {
+                "RateLimitError",
+                "MaxTurnsExceeded",
+                "APITimeoutError",
+                "APIConnectionError",
+                "InternalServerError",
+            }
+            retryable = name in transient or "429" in str(exc)
             if not retryable or attempt == attempts:
                 raise
-            why = "turns burnt (probably quota)" if name == "MaxTurnsExceeded" else "429 quota"
+            why = {
+                "MaxTurnsExceeded": "turns burnt (probably quota)",
+                "APITimeoutError": "request timed out",
+                "APIConnectionError": "connection dropped",
+                "InternalServerError": "provider 5xx",
+            }.get(name, "429 quota")
             print(f"  [{why} - waiting {delay:.0f}s, attempt {attempt}]")
             await asyncio.sleep(delay)
             delay *= 1.8
