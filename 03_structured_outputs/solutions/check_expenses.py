@@ -61,15 +61,26 @@ import expense_store
 from expense_store import MONTHLY_BUDGETS, SEEDED_FOOD_TOTAL, all_expenses
 from replies import SpendlyReply
 
-# The free tier allows ~15 requests/minute. A v3 case costs 4-10 of them, because
-# `output_type` adds a final structured-output turn on top of the tool calls. At a
-# 30s pause the harness poisons its own run: a 429 mid-case exhausts the SDK's
-# internal retries, the run dies with MaxTurnsExceeded, and every check in that
-# case fails for a reason that has nothing to do with the agent.
+# A v3 case costs 4-10 requests, because `output_type` adds a final
+# structured-output turn on top of the tool calls. This pause spaces the cases so
+# a run does not trip the free tier's ~15 requests/MINUTE limit -- at 30s the
+# harness poisoned its own run: a 429 mid-case exhausted the SDK's internal
+# retries, the run died with MaxTurnsExceeded, and every check in that case
+# failed for reasons that had nothing to do with the agent.
 #
-# Worth naming, because it is a whole class of bad eval: **an eval that fails for
-# infrastructure reasons teaches you nothing and costs you trust in the suite.**
-# If your dataset is flaky, fix the harness before you touch the agent.
+# THE PAUSE CANNOT SAVE YOU FROM THE OTHER LIMIT, and it is worth knowing before
+# you sit and wait for it: the free tier also allows only **500 requests per day,
+# per project, per model** (quotaId GenerateRequestsPerDayPerProjectPerModel).
+# One full dataset run is 60-90 requests. Against the daily wall no amount of
+# backoff helps -- switch MODEL_NAME in .env to a different Gemini model and you
+# get a fresh 500 immediately, because the bucket is per model.
+#
+# Two lessons, and the second is the general one:
+#   - an eval that fails for infrastructure reasons teaches you nothing and costs
+#     you trust in the suite. Fix the harness before you touch the agent.
+#   - **read the quotaId in a 429 before you tune a retry.** This harness had its
+#     backoff tuned against a per-minute limit twice while a per-day limit was
+#     the actual wall. The error message said so both times.
 PAUSE_BETWEEN_CASES = 60.0
 
 

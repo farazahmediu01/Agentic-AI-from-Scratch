@@ -147,7 +147,20 @@ Say this out loud when you introduce it. It is most students' first encounter wi
 
 ## 7. Classroom gotchas
 
-**Rate limits will bite you.** Free Gemini is ~15 requests/minute *per key*. Every student needs their own. One agent run is 4–10 requests. Tell them 429s are normal and not their bug.
+**Rate limits will bite you, and not the way you expect.** There are two free-tier limits, and the famous one is not the one that stops your work:
+
+| Limit | Effect |
+|---|---|
+| ~15 requests / **minute** | Annoying. Wait a minute, carry on |
+| **500 requests / day** | **Stops you until tomorrow** |
+
+The daily cap is the one that matters, and its quota ID tells you how to survive it: `GenerateRequestsPerDayPerProjectPerModel`. The bucket is per **project** and per **model**, so when you exhaust one model, **switching `MODEL_NAME` to a different Gemini model gives you a fresh 500 immediately.** A second API key from the same project does not — it shares the exhausted bucket.
+
+Budget it: one golden-dataset run is ~60–90 requests, so about five or six full runs per model per day. Ordinary chapter work costs far less, and every student needs their own key regardless.
+
+> This cost us two full dataset runs while building Chapter 3, and both times the backoff was fighting the per-minute limit while the daily one was the actual wall. **Read the `quotaId` in a 429 before you tune a retry.**
+
+If you are running datasets repeatedly — which instructors do and students do not — ~$5 of OpenAI credit and `AGENT_PROVIDER=openai` removes the problem entirely.
 
 **Never put a golden dataset in class time.** Ch3's is ~15 minutes of mostly waiting. It is homework, or you run it during prep.
 

@@ -7,10 +7,10 @@
 
 | Part | Core | Full |
 |---|---|---|
-| This README (§1–§10) | 4.5 hrs | 6 hrs |
+| This README (§1–§10) | 5 hrs | 6.5 hrs |
 | [`EXERCISES.md`](EXERCISES.md) — Track 1️⃣ drills | 1.5 hrs | 4 hrs |
 | [`PROJECT.md`](PROJECT.md) — Tracks 2️⃣ + 3️⃣ | 3 hrs | 4.5 hrs |
-| **Chapter total** | **≈ 9 hrs** | **≈ 14.5 hrs** |
+| **Chapter total** | **≈ 9.5 hrs** | **≈ 15 hrs** |
 
 **Plan 2–3 sessions.** Every section is marked `[core]` or `[depth]` and carries its own estimate; the totals above are their sum.
 
@@ -332,7 +332,7 @@ Three of these four fields will produce invented data. For each one, write:
 
 ---
 
-## 7. Unions — letting the agent say "I can't" `[core]` 🚀 · 35 min
+## 7. Unions — letting the agent say "I can't" `[core]` 🚀 · 65 min
 
 This is the most valuable section in the chapter.
 
@@ -371,6 +371,69 @@ def exactly_one_branch(self) -> SpendlyReply:
 Read that validator in `replies.py` and notice **where it had to live**. Not in the type — JSON Schema cannot portably say "exactly one of these four is non-null". Not in the prompt — that is a request again. It runs on the result, after the model has spoken, and it cannot be talked out of its job.
 
 That is a **guardrail**, and it is your first one. Chapter 8 gives them a name and a decorator.
+
+### 🐞 The cost nobody mentions: a union makes refusing *cheap*
+
+Everything above is the case for unions. Here is the bill, and it was found the expensive way — by this chapter breaking a case Chapter 2 had passed.
+
+Chapter 2's dataset case 6 is a **recovery** case:
+
+```
+"Log 1200 at Careem for transportation on 05/08/2026 (the 5th of August)."
+```
+
+The date is unambiguous — the user says which date they mean — but written in a format the schema forbids. Chapter 2's agent got rejected once, read the error, converted it to `2026-08-05`, and logged it. That is the behaviour the whole of Chapter 2 §7 was written to produce.
+
+Chapter 3's first version of this agent **refused it**, on turn one, without attempting the call:
+
+```
+branch=refused  turns=1        <- Chapter 2 passed this. Chapter 3 broke it.
+```
+
+Nothing about the tools changed. Nothing about the types changed. What changed is that **refusing became a well-typed, first-class, obviously-correct-looking thing to do** — and the model reached for it.
+
+> ### 🧠 The symmetry worth carrying out of this chapter
+>
+> §7's argument is that a rigid single shape creates **fabrication pressure**: if the only output demands an `amount`, the model produces an `amount` it does not have.
+>
+> The mirror is just as real. A branch named `refused` creates **refusal pressure**: if there is a clean, valid, blameless way to decline, declining gets easier — and an agent that refuses work it could have done is broken in a quieter way than one that invents.
+>
+> **Every branch you add is a road you have paved.** Traffic will use it. That is the point, and it is also the cost.
+
+The fix was not a type. It was making the *judgement* explicit in the prompt, because branch selection is judgement and always was:
+
+```
+REFORMATTING IS NOT CORRECTING. If the date is unambiguous but written in
+another format, convert it and carry on. Refuse only when it is impossible,
+in the future, or genuinely ambiguous.
+
+`refused` is the LAST resort, not the safe default.
+```
+
+Read `expense_agent_v3.py`'s prompt for both blocks in full. Then notice what the regression rule bought you: **this was caught because Chapter 2's cases are still in Chapter 3's dataset.** A curriculum that started a fresh dataset each chapter would have shipped it.
+
+### ▶ Practice 7c — feel the pressure yourself (20 min) `[core]`
+
+Delete the two sentences above from `SYSTEM_PROMPT` — the `REFORMATTING IS NOT CORRECTING` block and the `last resort` line. Run case 6 three times:
+
+```powershell
+uv run python 03_structured_outputs/solutions/check_expenses.py --only 6
+```
+
+1. How many of the three refused a date they could have read?
+2. Restore the block, run three more. Did it hold?
+3. Now the design question: could you have prevented this with a **type** instead of a prompt? Try to write one. What would it have to know?
+
+**You're done when:** you have both sets of three runs recorded, and a written answer to (3).
+
+<details>
+<summary>The answer to 3, which is the whole chapter in one paragraph</summary>
+
+You cannot. "Is this date reformattable or genuinely unusable?" depends on what the user meant, which is not a property of the value's shape. A type can say `IsoDate` must match a pattern. It cannot say *"if they told you which day they meant, believe them."*
+
+Shape is checkable. Judgement is not. Which is why §8 exists.
+
+</details>
 
 ### ▶ Practice 7 — add a branch (25 min)
 
