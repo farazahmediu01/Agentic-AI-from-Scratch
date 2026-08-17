@@ -1,5 +1,11 @@
 # Agentic AI From Scratch
 
+> ## 🧭 Building or extending a chapter? Read [`CHAPTER_PLAYBOOK.md`](CHAPTER_PLAYBOOK.md) first.
+>
+> It is the build process: the order to work in, the definition of done, how to wire a chapter into the gate, the verification protocol, and the gotchas that have already cost time. **This file holds the rules; that one holds the process.** A fresh session should read the roadmap table below to see what is next, then go there.
+>
+> The other two entry points: [`INSTRUCTOR.md`](INSTRUCTOR.md) for teaching the material, [`SDK_BRIDGE.md`](SDK_BRIDGE.md) for the running our-code→SDK map.
+
 A hands-on curriculum that makes a student **fluent in the OpenAI Agents SDK** — by spiking each mechanism by hand just deeply enough that the framework stops feeling like magic, then building for real with the SDK.
 
 This is not a personal experiment — it is a **teaching resource**. Instructors and students use this repository to learn, teach, and practice agentic AI. Every session must produce working code AND tasks that make students build something themselves.
@@ -573,6 +579,7 @@ The two found while building:
 | File | Purpose |
 |------|---------|
 | `shared/models.py` | **The model factory.** `make_model()` — the one seam between Chat Completions/Gemini and Responses/OpenAI. Every `with_sdk/` file uses it; no spike file may |
+| `CHAPTER_PLAYBOOK.md` | **The build process.** Read before authoring a chapter: build order, definition of done, gate wiring, verification protocol, known gotchas, anti-patterns |
 | `INSTRUCTOR.md` | **The teaching manual.** Prep loop, session shape, grading, gotchas. This file holds the *rules*; that one holds the *practice* |
 | `SDK_BRIDGE.md` | Our code → SDK abstraction → what it does for us. Grows every chapter |
 | `PYTHON_ROADMAP.md` | Deeper Python self-study. **Gitignored** — do not link it from public docs |
