@@ -155,7 +155,7 @@ Chapters are specified **only after the previous one is built and validated**. T
 | 2 | **Typed Tools** | 🔨 one spike, then SDK | 🔒📐 | ✅ Built + retrofitted |
 | 3 | **Structured Outputs** | 🔨 failing spike → 🚀 | 📐🧠 | ✅ Built |
 | — | *below this line is hypothesis* | | | |
-| 4 | **Sessions & State** — the next to specify | 🚀 | 🧠 | ⬜ Next |
+| 4 | **Sessions & State** | 🚀 only — no spike | 🧠 | 📋 Specified, not built |
 | 5 | **The Context Window** — Ch4's failure mode | 🔨 → 🚀 | 🧠 | ⬜ |
 | 6 | **Evals** — golden datasets, LLM-as-judge, regression | 🚀 | 📐 | ⬜ |
 | 7 | **Specialists** — handoffs, agents-as-tools | 🚀 | 🧠🔒 | ⬜ |
@@ -504,6 +504,40 @@ The first chapter designed under the depth policy, and the first SDK-only spine.
 
 1. **The one the chapter is about.** On the new dataset's first run, `subtract` returned **16000** and the agent told the user **14,500**. It had taken `month_total`'s post-write 9000 and subtracted the just-logged 1500 a *second* time. Every tool call was correct; only the summary was wrong. **This had been happening in Chapter 2 the whole time** — its assertion was `"16000" in answer`, so the failure showed up as one anonymous line among 34 and read as model noise. `reply.logged.remaining == 16000` named it immediately. Fixed by a `REPORTING NUMBERS` block in the system prompt, **not** by a type: the reply's shape was flawless and no schema could have objected. Taught as §1, revisited in §8. The lesson is the division of labour — *a type makes a failure impossible to express, a schema makes it impossible to hide, a cross-check makes it impossible to ship, and a prompt does none of the three.*
 2. **A flaky harness is a broken harness.** At a 30-second inter-case pause the dataset poisoned itself: a 429 mid-case exhausted the SDK's internal retries, the run died with `MaxTurnsExceeded`, and all fifteen checks in that case failed for reasons unrelated to the agent — 25/58 on a suite that passes. Pause raised to 45s, backoff to 20s, and `check_expenses.py` now line-buffers stdout so a redirected 6-minute run is not indistinguishable from a hang. **If a dataset is flaky, fix the harness before touching the agent** — an eval that fails for infrastructure reasons teaches nothing and costs you trust in the suite.
+
+---
+
+### Chapter 4 — `04_sessions_state/` 📋 specified, not built
+
+**Blocked on Chapter 3's dataset going green.** The regression rule means Ch4 cannot be built on an unverified baseline — a Ch4 failure could be a Ch3 failure nobody caught.
+
+**The hook, which Chapter 3 already wrote:** a typed reply saying `missing: ["category"]` is useless if nothing remembers what it was asking about. Ch3 case 8 builds a precise question the system is structurally incapable of hearing the answer to.
+
+**The first chapter with no hand-rolled layer at all.** Both mechanisms are 🚀 SDK-native by policy: `SQLiteSession` is a table (rebuilding it teaches SQL, not agents) and `RunContextWrapper` is plain Python DI (no mystery to dispel). The README must say this in one line — a student who has hand-rolled three chapters will otherwise assume something is missing. One 📖 Observe block replaces the spike: print the message list a session produces after three turns next to Ch1's hand-built list.
+
+**Sessions and context objects are one chapter** because both answer *"what does this run know that the prompt didn't tell it?"* — a session is knowledge from earlier turns, a context is knowledge from your application. Students conflate them; teaching them together is what makes the distinction stick.
+
+| | `SQLiteSession` | `RunContextWrapper` |
+|---|---|---|
+| Holds | conversation history | your app's dependencies |
+| Model sees it | **yes** — it is in the messages | **no** — never serialised |
+| Lives | across runs | one run |
+| Wrong use | putting an API key in it | expecting it to remember last turn |
+
+> *"A session is what the agent remembers. A context is what you hand it."*
+
+**Ten sections, ≈9 hrs core / ≈14 full.** The two that carry the chapter:
+
+- **§5 — stale state.** The bug persistence *causes*. The agent now remembers a budget figure from four turns ago and will reuse it after three more expenses are logged. Ch1's rule was "use tools for every fact, never recall from memory"; a session makes that rule harder to keep, because now there genuinely is a memory to recall from. This is the chapter's §7b/§8 equivalent.
+- **§8 — a session only grows.** Every turn appends, nothing prunes. Twenty turns in you resend the whole conversation each call, pay for it, and eventually exceed the window. **That is Chapter 5**, and naming it precisely here is what makes "the context window" concrete rather than abstract.
+
+**Decisions taken at spec time:**
+
+1. **Multi-turn evals go in a separate `check_multiturn.py`**, not the main dataset. A 3-turn case is 3× the requests; folding three of them into the 9-case run takes it from ~15 to ~25 minutes and materially raises the odds the free tier poisons it mid-run — the exact failure that cost a full Ch3 run. Two commands, neither at high risk.
+2. **The session DB resets per case**, exactly like `expense_store.reset(seeded=True)`. A persistent `.db` across cases destroys determinism. Build `reset_session()` into the harness from the start. `.gitignore`'s `**/data/` already covers the file.
+3. **`RunContextWrapper` carries a real `User`** — id, name, timezone, monthly income — and Spendly's budgets become **per-user** rather than a module constant. This touches `expense_store.py`, stable since Ch1, so Ch1–3 datasets need a re-run to confirm nothing broke. Taken deliberately: a context object carrying something incidental makes DI look decorative, and "budgets are per-user" is the kind of requirement that makes it obviously necessary.
+
+**Tracks:** drills are a trivia game that remembers your score and a timer that remembers laps (rotating, never expenses, all SDK-native). Spine is Spendly Lite v4, multi-turn. Track 3 adds one context object carrying something real about the user, plus one multi-turn run in `RUNS.md`.
 
 ---
 
