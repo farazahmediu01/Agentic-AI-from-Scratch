@@ -47,6 +47,7 @@ minute, so the harness paces itself. Expect ~6 minutes.
 
 from __future__ import annotations
 
+import argparse
 import asyncio
 import io
 import sys
@@ -374,7 +375,7 @@ def run_v3(prompt: str) -> RunLike:
     return asyncio.run(run_expense_agent(prompt))
 
 
-def main() -> int:
+def main(wanted: set[int] | None = None) -> int:
     # This harness takes ~6 minutes. Python block-buffers stdout whenever it is
     # not attached to a terminal, so piping it to a file or a log shows nothing
     # at all until the very end -- which looks exactly like a hang.
@@ -390,10 +391,15 @@ def main() -> int:
     passed_checks = 0
     failed_cases: list[int] = []
 
-    print("Spendly Lite v3 — golden dataset (9 cases)")
-    print("Cases 1-7 are Chapter 2's, and must still pass. 8-9 are new.\n")
+    cases = [c for c in CASES if wanted is None or c.number in wanted]
 
-    for index, case in enumerate(CASES):
+    print(f"Spendly Lite v3 — golden dataset ({len(cases)} of {len(CASES)} cases)")
+    print("Cases 1-7 are Chapter 2's, and must still pass. 8-9 are new.")
+    if wanted is not None:
+        print(f"Running only: {sorted(wanted)}")
+    print(f"Expect roughly {len(cases) * 1.5:.0f} minutes.\n")
+
+    for index, case in enumerate(cases):
         expense_store.reset(seeded=True)
         print(f"CASE {case.number}: {case.prompt}")
         print(f"  expect: {case.expectation}")
@@ -415,17 +421,32 @@ def main() -> int:
             print(f"  OUTPUT ERROR: {run.output_error}")
         print()
 
-        if index < len(CASES) - 1:
+        if index < len(cases) - 1:
             time.sleep(PAUSE_BETWEEN_CASES)
 
     print("=" * 72)
     print(f"{passed_checks}/{total_checks} checks passed")
     if failed_cases:
         print(f"FAILED CASES: {failed_cases}")
+        print()
+        print("Before blaming the agent, check the failure SHAPE. If failing cases")
+        print("show `branch=none turns=0` and a `waiting ...` line above them, that")
+        print("is the free-tier quota wearing a costume -- not a broken agent. Wait")
+        print("for the quota to reset and re-run only those cases with --only.")
     else:
         print("All cases passed.")
     return 0 if not failed_cases else 1
 
 
 if __name__ == "__main__":
-    raise SystemExit(main())
+    parser = argparse.ArgumentParser(description="Grade Spendly Lite v3 against the dataset.")
+    parser.add_argument(
+        "--only",
+        metavar="N",
+        help="comma-separated case numbers, e.g. --only 3,4,5. Saves quota when "
+        "re-checking a subset after a rate-limited run.",
+    )
+    args = parser.parse_args()
+
+    selected = {int(n) for n in args.only.split(",")} if args.only else None
+    raise SystemExit(main(selected))

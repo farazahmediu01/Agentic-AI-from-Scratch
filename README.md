@@ -22,7 +22,7 @@ By the end you should be able to say:
 
 ## Who This Is For
 
-- **Instructors** looking for a structured, hands-on curriculum for teaching agentic AI
+- **Instructors** — start with [`INSTRUCTOR.md`](INSTRUCTOR.md), the operating manual for teaching this
 - **Students** who want to understand how agents actually work, not just how to call an API
 - **Self-learners** building toward production AI agent roles
 

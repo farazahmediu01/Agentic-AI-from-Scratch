@@ -534,6 +534,7 @@ The first chapter designed under the depth policy, and the first SDK-only spine.
 | File | Purpose |
 |------|---------|
 | `shared/models.py` | **The model factory.** `make_model()` — the one seam between Chat Completions/Gemini and Responses/OpenAI. Every `with_sdk/` file uses it; no spike file may |
+| `INSTRUCTOR.md` | **The teaching manual.** Prep loop, session shape, grading, gotchas. This file holds the *rules*; that one holds the *practice* |
 | `SDK_BRIDGE.md` | Our code → SDK abstraction → what it does for us. Grows every chapter |
 | `PYTHON_ROADMAP.md` | Deeper Python self-study. **Gitignored** — do not link it from public docs |
 | `RESPONSES_VS_CHATCOMPLETIONS.md` | Why the curriculum runs on Chat Completions, what it costs, where the escape hatch is |
