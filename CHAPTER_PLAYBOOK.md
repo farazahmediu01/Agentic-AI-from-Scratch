@@ -143,11 +143,22 @@ Golden-dataset runs are where time disappears. Budget them.
 
 ### Quota
 
-The binding free-tier limit is **500 requests per day, per project, per model** — quotaId `GenerateRequestsPerDayPerProjectPerModel-FreeTier`. Not the famous ~15/minute one.
+The binding free-tier limit is the **per-day** one — quotaId `GenerateRequestsPerDayPerProjectPerModel-FreeTier`. Not the famous ~15/minute one.
 
-- One full dataset run is **60–90 requests**. Roughly 5–6 runs per model per day.
-- Exhausted? **Switch `MODEL_NAME` in `.env` to a different Gemini model** for a fresh 500 immediately. A second key in the same project shares the exhausted bucket.
-- **Read the `quotaId` in a 429 before tuning a retry.** Two full runs were lost to backoff tuned against the wrong limit.
+- One full dataset run is **60–90 requests**.
+- ⚠️ **The daily cap is per model AND differs wildly between models.** Read `quotaValue` in the 429 body — it is printed every time. Measured Aug 2026: `gemini-3.5-flash-lite` **500/day**, `gemini-3.5-flash` **20/day**. A 20/day model cannot finish one dataset run, so *"switch to any other model"* is bad advice on its own — switch to one you have checked.
+- Exhausted? **Switch `MODEL_NAME` to a different, verified Gemini model.** A second key in the same project shares the exhausted bucket.
+- You do **not** need to edit `.env` — `load_dotenv()` never overrides an existing environment variable, so a shell prefix wins for one command: `MODEL_NAME=gemini-3.6-flash uv run python .../check_multiturn.py`. Prefer this; `.env` holds the user's key.
+- ⚠️ **Not every model can run the spine.** From Ch3 on it needs `output_type=` **and** tools *together*, and some models refuse the combination with a `400 INVALID_ARGUMENT`: *"Function calling with a response mime type: 'application/json' is unsupported"*. `gemini-2.5-flash` fails this way. Verified working Aug 2026: `gemini-3.5-flash`, `gemini-3.5-flash-lite`, `gemini-3.6-flash`.
+- **Probe a new model with one request before betting a 15-minute run on it** — one tool, one `output_type`, one prompt. A whole multi-turn run was lost to skipping this.
+- **Read the `quotaId` in a 429 before tuning a retry.** Two full runs were lost to backoff tuned against the wrong limit. Both limits are real and need different fixes:
+
+| quotaId | Limit | Fix |
+|---|---|---|
+| `GenerateRequestsPerMinutePerProjectPerModel-FreeTier` | 15/min | pacing — `await asyncio.sleep(8)` between runs |
+| `GenerateRequestsPerDayPerProjectPerModel-FreeTier` | **model-specific** — 500/day on flash-lite, 20/day on flash | a different model, from the verified list |
+
+Demos that fire runs back to back hit the per-minute one; dataset harnesses that pause between cases hit the per-day one.
 
 ### Reading a failure
 

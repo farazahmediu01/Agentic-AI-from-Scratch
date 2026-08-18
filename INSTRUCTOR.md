@@ -152,13 +152,28 @@ Say this out loud when you introduce it. It is most students' first encounter wi
 | Limit | Effect |
 |---|---|
 | ~15 requests / **minute** | Annoying. Wait a minute, carry on |
-| **500 requests / day** | **Stops you until tomorrow** |
+| **N requests / day** (model-specific) | **Stops you until tomorrow** |
 
-The daily cap is the one that matters, and its quota ID tells you how to survive it: `GenerateRequestsPerDayPerProjectPerModel`. The bucket is per **project** and per **model**, so when you exhaust one model, **switching `MODEL_NAME` to a different Gemini model gives you a fresh 500 immediately.** A second API key from the same project does not — it shares the exhausted bucket.
+The daily cap is the one that matters, and its quota ID tells you how to survive it: `GenerateRequestsPerDayPerProjectPerModel`. The bucket is per **project** and per **model**, so when you exhaust one model, **switching `MODEL_NAME` to a different Gemini model gives you a fresh bucket immediately** — but check the size first. The daily cap is not the same for every model: measured Aug 2026, `gemini-3.5-flash-lite` allows **500/day** while `gemini-3.5-flash` allows **20/day**, which is not enough for a single dataset run. Every 429 prints the real number as `quotaValue`. A second API key from the same project does not — it shares the exhausted bucket.
 
 Budget it: one golden-dataset run is ~60–90 requests, so about five or six full runs per model per day. Ordinary chapter work costs far less, and every student needs their own key regardless.
 
-> This cost us two full dataset runs while building Chapter 3, and both times the backoff was fighting the per-minute limit while the daily one was the actual wall. **Read the `quotaId` in a 429 before you tune a retry.**
+You do **not** need to edit `.env` to switch — `load_dotenv()` never overrides a variable already in the environment, so a shell prefix wins for a single command:
+
+```powershell
+$env:MODEL_NAME="gemini-3.6-flash"; uv run python 04_sessions_state/solutions/check_multiturn.py
+```
+
+> ⚠️ **Switch to a model from the verified list, not an arbitrary one.** From Chapter 3 on, the spine uses `output_type=` **and** tools *together*, and some models support each separately while refusing the combination:
+>
+> ```
+> 400 INVALID_ARGUMENT
+> "Function calling with a response mime type: 'application/json' is unsupported"
+> ```
+>
+> `gemini-2.5-flash` fails exactly this way. Verified working as of Aug 2026: **`gemini-3.5-flash`**, **`gemini-3.5-flash-lite`**, **`gemini-3.6-flash`**. Before betting a 15-minute run on an untested model, spend one request on a probe — one tool, one `output_type`, one prompt. A full Chapter 4 dataset run was lost to skipping that step.
+
+> This also cost us two full dataset runs while building Chapter 3, and both times the backoff was fighting the per-minute limit while the daily one was the actual wall. **Read the `quotaId` in a 429 before you tune a retry.**
 
 If you are running datasets repeatedly — which instructors do and students do not — ~$5 of OpenAI credit and `AGENT_PROVIDER=openai` removes the problem entirely.
 

@@ -42,9 +42,9 @@ No AI/ML background required.
 | 1 | **The Agent Loop** — the `while` loop every framework wraps | 🧠🔒📐 | ✅ Built |
 | 2 | **Typed Tools** — validation before the function body runs | 🔒📐 | ✅ Built |
 | 3 | **Structured Outputs** — typed answers, and evals that stop guessing | 📐🧠 | ✅ Built |
+| 4 | **Sessions & State** — persistence, context objects as DI | 🧠 | ✅ Built |
 | — | *everything below is a hypothesis, not a promise* | | |
-| 4 | **Sessions & State** — persistence, context objects as DI | 🧠 | ⬜ Next |
-| 5 | **The Context Window** — Chapter 4's failure mode | 🧠 | ⬜ |
+| 5 | **The Context Window** — Chapter 4's failure mode, measured in Ch4 §9 | 🧠 | ⬜ Next |
 | 6 | **Evals** — golden datasets, LLM-as-judge, regression | 📐 | ⬜ |
 | 7 | **Specialists** — handoffs, agents-as-tools | 🧠🔒 | ⬜ |
 | 8 | **Guardrails & Approvals** | 🔒 | ⬜ |

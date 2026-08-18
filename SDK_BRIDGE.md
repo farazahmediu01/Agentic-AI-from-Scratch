@@ -173,14 +173,97 @@ The first pair is wrong in both directions — `"17500" in answer` passes on *"y
 
 ---
 
-## Chapters 4+ — to come
+## Chapter 4 — Sessions & State
+
+**Axes:** 🧠 State
+
+The first chapter with nothing hand-rolled. Both mechanisms are SDK-native by policy — a
+session is a table, and a context object is a Python argument. The left column below is
+therefore Chapter **1**'s code, because that is the last time we built any of this.
+
+| We built (Ch1) | SDK abstraction | What it does for us |
+|---|---|---|
+| `messages: list[dict] = []` | `SQLiteSession(session_id, db_path)` | Storage, durable instead of a local variable |
+| `messages.append({"role": "user", ...})` | `session=` on `Runner.run` | Appends the user turn before the run and the assistant turn after |
+| appending tool results by hand | handled | Tool calls and results stored as correctly paired separate items |
+| passing `messages` into the next call | handled | Loaded and prepended automatically |
+| *(nothing)* | `session.get_items()` / `add_items()` / `pop_item()` / `clear_session()` | Read, seed, repair and reset a transcript |
+| a module-level `MONTHLY_BUDGETS` dict | `RunContextWrapper[User]` | Per-run dependencies — works for a second user |
+| interpolating user data into the prompt | `context=` on `Runner.run` | Not tokens, not visible to the model, not roundable |
+| threading `user` through every call | first parameter, injected | And **stripped from the tool schema** the model reads |
+| `Agent(...)` | `Agent[User](...)` | Nothing at runtime; everything at edit time |
+
+### 🧠 The stored shape is Chapter 1's list, exactly
+
+```
+[ 0] user                    Pack two t-shirts, they're 0.2 kg each.
+[ 1] function_call:add_item  {"item":"t-shirt","kg":0.2}
+[ 2] function_call_output    Packed t-shirt (0.2 kg). Bag now 0.2 kg.
+[ 3] assistant               I've packed both t-shirts for you.
+```
+
+Same roles, same call/result pairing, same append-only growth. `with_sdk/session_demo.py`
+prints it next to the raw JSON so there is nowhere for magic to hide.
+
+### 🔒 The context is invisible until a tool reveals it
+
+```
+whoami   model is told about: (no arguments)
+add_item model is told about: ['item', 'kg']
+```
+
+Every one of those declares `ctx: RunContextWrapper[Traveller]` first, and none of them
+mentions it. **A prompt injection cannot reach `ctx.context` — there is no argument to
+poison.**
+
+The half people skip: a tool *return value* is stored in the session like everything else.
+Measured, in `context_demo.py`:
+
+```
+session where a tool returned the name   -> 'Faraz' in transcript: True
+session where no tool returned it        -> 'Faraz' in transcript: False
+```
+
+> **A context is private until a tool returns part of it.** After that it is in the
+> transcript permanently and re-sent every turn. "What does this tool return?" is a
+> security question.
+
+### 📐 What the chapter unlocked for testing
+
+A session is storage and a context is a dataclass, so neither needs a model to be wrong —
+13 offline tests, no API key, ~1 second. And Chapter 3's `RunLike` Protocol finally paid
+off: `check_regression.py` runs **Chapter 3's nine cases against Chapter 4's agent** in
+forty lines, because v4's `SdkRun` still satisfies a contract neither file mentions.
+
+> **Depend on the shape you need, not the class you happen to have.**
+
+### 🔒 Three things that do NOT transfer
+
+**It does not scope the session for you.** `session_id` is an unvalidated string and
+`db_path` defaults to `":memory:"`. Same id, different paths → two silent conversations.
+Same id, same path → one silent conversation. `session_id` is an authorisation decision
+wearing the costume of a cache key.
+
+**It does not prune.** `SessionSettings(limit=N)` and `get_items(limit=N)` cap what you
+**read**, never what you **store**, count items rather than tokens, and can slice a
+`function_call` away from its `function_call_output`. Measured: at `limit=2` and `limit=6`
+the window starts orphaned. That is Chapter 5.
+
+**It does not keep the model honest about what it remembers.** A session makes stale
+recital *possible*; nothing in the SDK makes it *unlikely*. Chapter 1's rule — *use tools
+for every fact* — was easy when there was no memory to recall from. Generalise it: **every
+primitive that removes a failure mode installs a new one, and the new one is always
+quieter.**
+
+---
+
+## Chapters 5+ — to come
 
 Rows are added as each chapter lands. Planned coverage, in the order the curriculum will build it — this table mirrors the roadmap in `CLAUDE.md`, and **anything past the next chapter is a hypothesis, not a promise**:
 
 | Ch | Concept | Likely SDK abstraction |
 |---|---|---|
-| 4 | Sessions & state — persistence *and* per-run dependencies, taught together because dependency injection **is** a state question | `SQLiteSession`, `RunContextWrapper`, `context=` |
-| 5 | Context window management — Chapter 4's failure mode | compaction / summarisation |
+| 5 | Context window management — Chapter 4's failure mode, measured in Ch4 §9 | compaction / summarisation |
 | 6 | Evals | our harness (the SDK does not provide this) |
 | 7 | Specialists & routing | `handoffs=[...]`, agents-as-tools |
 | 8 | Guardrails & human approval | `@input_guardrail`, `@output_guardrail`, `needs_approval=True` |

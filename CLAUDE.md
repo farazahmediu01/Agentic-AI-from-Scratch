@@ -160,9 +160,9 @@ Chapters are specified **only after the previous one is built and validated**. T
 | 1 | **The Agent Loop** | 🔨 spike-heavy, by design | 🧠🔒📐 | ✅ Built + retrofitted |
 | 2 | **Typed Tools** | 🔨 one spike, then SDK | 🔒📐 | ✅ Built + retrofitted |
 | 3 | **Structured Outputs** | 🔨 failing spike → 🚀 | 📐🧠 | ✅ Built |
+| 4 | **Sessions & State** | 🚀 only — no spike | 🧠 | ✅ Built |
 | — | *below this line is hypothesis* | | | |
-| 4 | **Sessions & State** | 🚀 only — no spike | 🧠 | 📋 Specified, not built |
-| 5 | **The Context Window** — Ch4's failure mode | 🔨 → 🚀 | 🧠 | ⬜ |
+| 5 | **The Context Window** — Ch4's failure mode, measured in Ch4 §9 | 🔨 → 🚀 | 🧠 | ⬜ |
 | 6 | **Evals** — golden datasets, LLM-as-judge, regression | 🚀 | 📐 | ⬜ |
 | 7 | **Specialists** — handoffs, agents-as-tools | 🚀 | 🧠🔒 | ⬜ |
 | 8 | **Guardrails & Approvals** | 🚀 | 🔒 | ⬜ |
@@ -518,37 +518,60 @@ The two found while building:
 
 ---
 
-### Chapter 4 — `04_sessions_state/` 📋 specified, not built
+### Chapter 4 — `04_sessions_state/` ✅ built
 
-**Blocked on Chapter 3's dataset going green.** The regression rule means Ch4 cannot be built on an unverified baseline — a Ch4 failure could be a Ch3 failure nobody caught.
+**The first chapter with no hand-rolled layer at all**, and the README says so in one line — a student who has spiked three chapters will otherwise assume something is missing. Both mechanisms are 🚀 SDK-native by policy: `SQLiteSession` is a table, `RunContextWrapper` is plain Python DI. One 📖 Observe block replaces the spike. Budget: core ≈10.5 hrs, full ≈16 (the sum of the chapter's own per-section estimates; the spec's ≈9/≈14 guess was low).
 
-**The hook, which Chapter 3 already wrote:** a typed reply saying `missing: ["category"]` is useless if nothing remembers what it was asking about. Ch3 case 8 builds a precise question the system is structurally incapable of hearing the answer to.
+- `with_sdk/packing_agent.py` — the demo agent. **Luggage, not expenses**, because sessions are a property of any conversation and watching memory work on the spine teaches how Spendly does memory
+- `with_sdk/session_demo.py` — §1/§2/§4. The control, the trap, the raw item list, and session isolation
+- `with_sdk/growth_demo.py` — §4/§9. Measured growth; Parts 2 and 3 cost **no API calls**
+- `with_sdk/context_demo.py` — §5/§6. Part 1 prints the tool schemas and costs nothing
+- `solutions/spendly_context.py` — the `User` context and the two users M5 needs
+- `solutions/expense_agent_v4.py` — v3 + `session=` + `context=` + one context-aware tool
+- `solutions/check_multiturn.py` — 5 multi-turn cases including **a control**
+- `solutions/check_regression.py` — **Chapter 3's 9 cases imported verbatim and run against v4**
+- `solutions/test_context.py` — 13 offline tests, no API key, ~1s
+- Gate clean; both datasets green
 
-**The first chapter with no hand-rolled layer at all.** Both mechanisms are 🚀 SDK-native by policy: `SQLiteSession` is a table (rebuilding it teaches SQL, not agents) and `RunContextWrapper` is plain Python DI (no mystery to dispel). The README must say this in one line — a student who has hand-rolled three chapters will otherwise assume something is missing. One 📖 Observe block replaces the spike: print the message list a session produces after three turns next to Ch1's hand-built list.
+**The hook Chapter 3 wrote, closed.** Ch3 case 8 produced `missing == ["category"]` — a perfectly typed question the system was structurally incapable of hearing the answer to. Case M1 is those two turns; the user's second message is one word.
 
-**Sessions and context objects are one chapter** because both answer *"what does this run know that the prompt didn't tell it?"* — a session is knowledge from earlier turns, a context is knowledge from your application. Students conflate them; teaching them together is what makes the distinction stick.
+**Two decisions changed at build time**, and both were the right call:
 
-| | `SQLiteSession` | `RunContextWrapper` |
+1. **The spec said per-user budgets would touch `expense_store.py` and force a Ch1–3 re-run.** They did not. `MONTHLY_BUDGETS` became the *default* the `User` dataclass copies, so Chapter 2's storage is untouched and every figure Ch1–3 asserted on still holds. The DI lesson survives intact because the second user (Ayesha, food budget 9000 vs Faraz's 25000) makes one prompt produce two different correct answers.
+2. **`check_regression.py` was added, and it is the more important half of the regression rule.** Re-running Ch3's harness against Ch3's agent proves the *old* code still works and says nothing about the new code. This imports `CASES` from Ch3 and pushes them through v4 — forty lines, because Ch3's harness declared a `Protocol` rather than importing its concrete `SdkRun`. *Depend on the shape you need, not the class you happen to have.*
+
+**§8 is this chapter's §7b**, and it completes a family that now runs three chapters deep:
+
+| | The rule | What it still cannot stop |
 |---|---|---|
-| Holds | conversation history | your app's dependencies |
-| Model sees it | **yes** — it is in the messages | **no** — never serialised |
-| Lives | across runs | one run |
-| Wrong use | putting an API key in it | expecting it to remember last turn |
+| Ch2 §7b | a type stops a bad value being **accepted** | the model **fabricating** a good one |
+| Ch3 §8 | a schema stops a bad answer being **hidden** | a **well-formed false** one |
+| **Ch4 §8** | a session stops context being **lost** | the model **reciting** a fact that has since changed |
 
-> *"A session is what the agent remembers. A context is what you hand it."*
+Case M4 tests it by changing the ledger *between turns* — a mobile app, a bank sync, a shared household ledger — and asserting the **route** (`"month_total" in run.executed_names`), not only the destination. Chapter 1's "use tools for every fact" was easy to keep when there was no memory to recall from; **a session is what makes it hard.**
 
-**Ten sections, ≈9 hrs core / ≈14 full.** The two that carry the chapter:
+**Six real defects, every one found by running the code rather than reasoning about it.** Four of them are in this chapter's own teaching material, which is the argument for "code first, prose second" in one line:
 
-- **§5 — stale state.** The bug persistence *causes*. The agent now remembers a budget figure from four turns ago and will reuse it after three more expenses are logged. Ch1's rule was "use tools for every fact, never recall from memory"; a session makes that rule harder to keep, because now there genuinely is a memory to recall from. This is the chapter's §7b/§8 equivalent.
-- **§8 — a session only grows.** Every turn appends, nothing prunes. Twenty turns in you resend the whole conversation each call, pay for it, and eventually exceed the window. **That is Chapter 5**, and naming it precisely here is what makes "the context window" concrete rather than abstract.
+1. **The control group was contaminated, and it was convincing.** `session_demo.py` PART 1 was meant to prove an agent with no session cannot resolve *"add two more of those."* It resolved it anyway — because the `Traveller` context object was reused across runs and the agent recovered the item by calling `show_list()`. Split into 1a (fresh context: *"What would you like to pack two more of?"*) and 1b (shared context: recovers). **1b is kept deliberately** and opens the chapter, because state leaking through the *other* primitive is the single most common reason people conclude they do not need sessions.
+2. **The growth table measured the wrong thing.** A turn-over-turn ratio of `usage.input_tokens` came out ~1.1× and made the chapter's argument look weak. Two errors: `input_tokens` is the **sum over every request in the run**, so a chatty tool turn out-totals a longer one — divide by `usage.requests`; and at turn 5 the **fixed** cost (system prompt + tool schemas ≈ 1000 tokens) swamps the growth. Replaced with transcript characters (monotonic by construction) plus tokens-per-request: `1,377 → 4,782` chars and `401 → 714` tok/req over five short turns. **The corrected finding is better than the original claim** — the bill arrives as a slope you cannot see, not a cliff, which is exactly why "we'll add trimming when it becomes a problem" fails.
+3. **`SessionSettings(limit=6)` returned 0 items.** A second `SQLiteSession` with the same `session_id` but a default `:memory:` `db_path` is a *different database*, and nothing raises. Now `growth_demo.py` PART 2 and a test. It is a bug with a schedule: it works all through development, because a dev server is one process holding one object, and fails on the second worker as *"the agent forgot everything"* — which reads like a model problem.
+4. **The harness cleared the session per TURN instead of per CASE.** M1 scored 2/9 with `branch=need_more_info`, which is exactly what a broken session looks like *and* exactly what a broken agent looks like. The only reason the harness got suspected before the prompt is that the same two turns had passed by hand minutes earlier. **A multi-turn harness has two clocks; mixing them up produces a failure that reads as a model problem.**
+5. **A check that was wrong about its subject, not its threshold.** M3 asserted `session_items <= 2` as a proxy for "the other conversation did not leak in", and failed at 6 — because a run appends its own items to the session it runs in. Raising the number would have produced a green check that no longer tested isolation at all. Fixed by adding `session_text` to `SdkRun` and asserting the actual claim: `"Metro" not in run.session_text`. **Never weaken a check to make a run pass; if a check is wrong it is usually wrong about *what* it asserts.**
 
-**Decisions taken at spec time:**
+6. **The control caught a defect introduced by the fix that made the main case pass.** `USING WHAT YOU WERE ALREADY TOLD` was added to the prompt so M1's one-word `"Groceries."` completes the expense from turn 1. It did — and on a later run M2 (the same two turns, **no session**) came back `branch=logged`: the agent read the rule, concluded a one-word reply must be answering a question it had asked, and called `log_expense` with a vendor and amount nobody gave it. **A rule written to exploit memory becomes an instruction to invent when the memory is absent.** Every test that had a session passed. Fourth member of the family: Ch2 §7b **fabricated** from nothing, Ch3 §1 **miscomputed** from real tool output, Ch3 case 8 **inferred** from context, Ch4 M2 **backfilled** from a conversation that never happened. Fixed in the prompt (the reply's shape was flawless; only the world it described was imaginary) by anchoring the rule to what is actually visible. **An eval with no control cannot tell "the session works" from "the model guessed well" — and cannot tell you when the thing you added to make the session work has quietly taught the agent to lie without one.**
 
-1. **Multi-turn evals go in a separate `check_multiturn.py`**, not the main dataset. A 3-turn case is 3× the requests; folding three of them into the 9-case run takes it from ~15 to ~25 minutes and materially raises the odds the free tier poisons it mid-run — the exact failure that cost a full Ch3 run. Two commands, neither at high risk.
-2. **The session DB resets per case**, exactly like `expense_store.reset(seeded=True)`. A persistent `.db` across cases destroys determinism. Build `reset_session()` into the harness from the start. `.gitignore`'s `**/data/` already covers the file.
-3. **`RunContextWrapper` carries a real `User`** — id, name, timezone, monthly income — and Spendly's budgets become **per-user** rather than a module constant. This touches `expense_store.py`, stable since Ch1, so Ch1–3 datasets need a re-run to confirm nothing broke. Taken deliberately: a context object carrying something incidental makes DI look decorative, and "budgets are per-user" is the kind of requirement that makes it obviously necessary.
+**A model-selection constraint discovered the hard way, now in `.env.example`, `INSTRUCTOR.md` and the playbook.** "Switch `MODEL_NAME` for a fresh daily quota" was incomplete advice. From Chapter 3 on the spine needs `output_type=` **and** tools *together*, and some models refuse the combination:
 
-**Tracks:** drills are a trivia game that remembers your score and a timer that remembers laps (rotating, never expenses, all SDK-native). Spine is Spendly Lite v4, multi-turn. Track 3 adds one context object carrying something real about the user, plus one multi-turn run in `RUNS.md`.
+```
+400 INVALID_ARGUMENT
+"Function calling with a response mime type: 'application/json' is unsupported"
+```
+
+`gemini-2.5-flash` fails exactly that way and cost a full run. Verified working Aug 2026: `gemini-3.5-flash`, `gemini-3.5-flash-lite`, `gemini-3.6-flash`. **Probe an untested model with one request before betting fifteen minutes on it.** Also recorded: `load_dotenv()` never overrides an existing environment variable, so `MODEL_NAME=... uv run ...` switches models for one command without touching a `.env` that holds someone's key.
+
+**Both free-tier limits appeared in one session, and they need different fixes** — `...PerMinutePerProjectPerModel` (15/min) killed a demo firing runs back to back and is solved by pacing; `...PerDayPerProjectPerModel` (500/day) killed a dataset case and is solved by a different model. Same status code, same exception class.
+
+**Tracks:** drills are a stopwatch, a trivia game, a thermostat and a session inspector (rotating, never expenses, **all SDK-native** — the first chapter where that is 100%). Spine is Spendly Lite v4, multi-turn. Track 3 requires a file-backed session with a server-derived `session_id`, a context object that *changes an answer*, and one multi-turn run in `RUNS.md`.
 
 ---
 
@@ -566,10 +589,14 @@ The two found while building:
 | Run the SDK build | `uv run python 03_structured_outputs/with_sdk/agent_sdk.py` |
 | Ch3 spike — 8 real responses, free and offline | `uv run python 03_structured_outputs/from_scratch/prompt_and_parse.py` |
 | Ch3 spike — against the live model | `uv run python 03_structured_outputs/from_scratch/prompt_and_parse.py --live 6` |
-| Run the spine (current version) | `uv run python 03_structured_outputs/solutions/expense_agent_v3.py` |
+| Run the Ch3 spine (single-turn) | `uv run python 03_structured_outputs/solutions/expense_agent_v3.py` |
 | Check which provider/model is wired (free, no tokens) | `uv run python -m shared.models` |
 | Grade Ch2 (both builds) | `uv run python 02_typed_tools/solutions/check_expenses.py [--impl sdk]` |
 | Grade Ch3 (9 cases, ~12 min — free tier is the bottleneck) | `uv run python 03_structured_outputs/solutions/check_expenses.py` |
+| Run the spine (current version) | `uv run python 04_sessions_state/solutions/expense_agent_v4.py` |
+| Ch4 — what a session holds / costs / hides | `uv run python 04_sessions_state/with_sdk/{session,growth,context}_demo.py` |
+| Grade Ch4 multi-turn (5 cases, ~11 min) | `uv run python 04_sessions_state/solutions/check_multiturn.py [--only 1,4]` |
+| **Ch4 regression — Ch3's 9 cases against v4** | `uv run python 04_sessions_state/solutions/check_regression.py` |
 | Add a dependency | `uv add <package>` |
 
 ---

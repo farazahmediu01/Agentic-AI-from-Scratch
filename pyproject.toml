@@ -76,6 +76,9 @@ src = [
     "03_structured_outputs/solutions",
     "03_structured_outputs/with_sdk",
     "03_structured_outputs/exercises",
+    "04_sessions_state/solutions",
+    "04_sessions_state/with_sdk",
+    "04_sessions_state/exercises",
 ]
 
 [tool.ruff.lint]
@@ -106,7 +109,14 @@ docstring-code-format = true
 exclude = ["*.md"]
 
 [tool.pyright]
-include = ["shared", "00_python_for_agents", "01_agent_loop", "02_typed_tools", "03_structured_outputs"]
+include = [
+    "shared",
+    "00_python_for_agents",
+    "01_agent_loop",
+    "02_typed_tools",
+    "03_structured_outputs",
+    "04_sessions_state",
+]
 exclude = ["**/__pycache__", ".venv"]
 pythonVersion = "3.12"
 typeCheckingMode = "standard"
@@ -176,12 +186,46 @@ extraPaths = [
 root = "03_structured_outputs/exercises"
 extraPaths = ["03_structured_outputs/exercises"]
 
+# Chapter 4 stacks one more layer on the same spine: it imports Chapter 3's
+# `replies` and Chapter 2's `expense_tools` / `expense_store` / `chapter`.
+# Nothing was copied forward, so the path list grows by exactly one entry per
+# chapter — which is the cost of "one app that grows", paid here.
+[[tool.pyright.executionEnvironments]]
+root = "04_sessions_state/solutions"
+extraPaths = [
+    "04_sessions_state/solutions",
+    "03_structured_outputs/solutions",
+    "02_typed_tools/solutions",
+    "02_typed_tools/from_scratch",
+]
+
+[[tool.pyright.executionEnvironments]]
+root = "04_sessions_state/with_sdk"
+extraPaths = [
+    "04_sessions_state/with_sdk",
+    "04_sessions_state/solutions",
+    "03_structured_outputs/solutions",
+    "02_typed_tools/solutions",
+    "02_typed_tools/from_scratch",
+]
+
+[[tool.pyright.executionEnvironments]]
+root = "04_sessions_state/exercises"
+extraPaths = ["04_sessions_state/exercises"]
+
 [[tool.pyright.executionEnvironments]]
 root = "."
 
 [tool.pytest.ini_options]
 # Only `test_*.py` is collected. `check_*.py` harnesses cost real API calls and
 # are run deliberately, never as part of `uv run pytest`.
-testpaths = ["shared", "00_python_for_agents", "01_agent_loop", "02_typed_tools", "03_structured_outputs"]
+testpaths = [
+    "shared",
+    "00_python_for_agents",
+    "01_agent_loop",
+    "02_typed_tools",
+    "03_structured_outputs",
+    "04_sessions_state",
+]
 python_files = ["test_*.py"]
 addopts = "-q"
